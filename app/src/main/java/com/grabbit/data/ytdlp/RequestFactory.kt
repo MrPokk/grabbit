@@ -1,0 +1,146 @@
+package com.grabbit.data.ytdlp
+
+import com.grabbit.core.Links
+import com.grabbit.data.download.DownloadOptions
+import com.grabbit.data.download.MediaType
+import com.yausername.youtubedl_android.YoutubeDLRequest
+import java.io.File
+
+/** Everything yt-dlp needs to run a single download. */
+data class DownloadSpec(
+    val taskId: String,
+    val url: String,
+    val playlistIndex: Int?,
+    val options: DownloadOptions,
+    val template: String,
+    val workDir: File,
+    val cookiesPath: String?,
+    val proxy: String?,
+    val markerFile: File,
+)
+
+object RequestFactory {
+
+    const val MAX_PLAYLIST_ITEMS = 200
+    const val MIX_PLAYLIST_END = 50
+
+    /**
+     * Metadata request used by [com.grabbit.data.ytdlp.YtDlpEngine.fetch].
+     *
+     * YouTube Mix/radio URLs (`list=RD…`): by default they are fetched as
+     * the single video (`--no-playlist`). With [loadMixAsPlaylist] they are
+     * returned as a bounded playlist (`--playlist-end`, [MIX_PLAYLIST_END]).
+     */
+    fun buildFetchRequest(url: String, loadMixAsPlaylist: Boolean): YoutubeDLRequest {
+        return YoutubeDLRequest(url).apply {
+            addOption("--dump-single-json")
+            addOption("--flat-playlist")
+            addOption("--playlist-end", MAX_PLAYLIST_ITEMS)
+            addOption("--no-warnings")
+            addOption("--ignore-config")
+            addOption("--socket-timeout", 20)
+            addOption("--extractor-retries", 2)
+            if (Links.isRadioPlaylist(url)) {
+                if (!loadMixAsPlaylist) {
+                    addOption("--no-playlist")
+                } else {
+                    addOption("--playlist-end", MIX_PLAYLIST_END)
+                }
+            }
+        }
+    }
+
+    fun build(spec: DownloadSpec): YoutubeDLRequest {
+        val options = spec.options
+        val request = YoutubeDLRequest(spec.url)
+
+        request.addOption("--ignore-config")
+        request.addOption("--newline")
+        request.addOption("--no-colors")
+        request.addOption("--no-simulate")
+        request.addOption("--continue")
+        request.addOption("--no-mtime")
+        request.addOption("--retries", 5)
+        request.addOption("--concurrent-fragments", 4)
+        request.addOption("--socket-timeout", 30)
+
+        // --print-to-file takes TEMPLATE and FILE. They must be consecutive
+        // arguments: two separate addOption calls make yt-dlp read the second
+        // option as the FILE and treat the marker path as a URL.
+        request.addCommands(
+            listOf("--print-to-file", "after_move:filepath", spec.markerFile.absolutePath),
+        )
+
+        request.addOption("-P", spec.workDir.absolutePath)
+        request.addOption("-o", outputTemplate(spec.template, spec.playlistIndex))
+
+        // Items are downloaded from their own URLs. Dynamic mixes change their
+        // contents between extraction and download, so playlist positions are
+        // only used for file naming, never to select a playlist entry again.
+        request.addOption("--no-playlist")
+
+        if (options.mediaType == MediaType.AUDIO) {
+            request.addOption("-f", "ba/b")
+            request.addOption("-x")
+            request.addOption("--audio-format", options.audioFormat)
+            // 0 is yt-dlp's "best" quality; explicit bitrates are kept for lower presets.
+            request.addOption(
+                "--audio-quality",
+                if (options.audioBitrate >= 320) "0" else "${options.audioBitrate}K",
+            )
+        } else {
+            request.addOption("-f", formatSelector(options))
+            request.addOption("--merge-output-format", options.container)
+        }
+
+        if (options.embedThumbnail) {
+            request.addOption("--embed-thumbnail")
+            // YouTube thumbnails are WebP; mp3/m4a need a JPEG to embed reliably.
+            if (options.mediaType == MediaType.AUDIO) {
+                request.addOption("--convert-thumbnails", "jpg")
+            }
+        }
+        if (options.embedMetadata) request.addOption("--embed-metadata")
+        if (options.subtitles) {
+            request.addOption("--write-subs")
+            request.addOption("--embed-subs")
+            request.addOption("--sub-langs", "en.*,ru.*")
+        }
+        if (options.sponsorBlock) {
+            request.addOption("--sponsorblock-remove", "sponsor,selfpromo")
+        }
+
+        spec.cookiesPath?.let { request.addOption("--cookies", it) }
+        spec.proxy?.takeIf { it.isNotBlank() }?.let { request.addOption("--proxy", it) }
+
+        return request
+    }
+
+    fun outputTemplate(template: String, playlistIndex: Int? = null): String {
+        val cleaned = template
+            .replace("/", "-")
+            .replace("\\", "-")
+            .ifBlank { "%(title)s" }
+        val withExt = if (cleaned.contains("%(ext)s")) cleaned else "$cleaned.%(ext)s"
+        return if (playlistIndex != null) {
+            "${playlistIndex.toString().padStart(2, '0')} - $withExt"
+        } else {
+            withExt
+        }
+    }
+
+    fun formatSelector(options: DownloadOptions): String {
+        if (options.mediaType == MediaType.AUDIO) return "ba/b"
+        val limit = if (options.maxHeight > 0) "[height<=${options.maxHeight}]" else ""
+        return when {
+            limit.isEmpty() && options.container == "mp4" ->
+                "bv*[ext=mp4]+ba[ext=m4a]/bv*+ba/b"
+            limit.isEmpty() ->
+                "bv*+ba/b"
+            options.container == "mp4" ->
+                "bv*$limit[ext=mp4]+ba[ext=m4a]/bv*$limit+ba/b$limit/b"
+            else ->
+                "bv*$limit+ba/b$limit/b"
+        }
+    }
+}
