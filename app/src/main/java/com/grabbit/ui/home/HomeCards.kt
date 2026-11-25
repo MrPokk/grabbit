@@ -23,10 +23,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedCard
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,65 +55,77 @@ internal fun UrlCard(
     onFetch: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    OutlinedCard(modifier) {
-        Column(
-            modifier = Modifier.padding(Dimens.md),
-            verticalArrangement = Arrangement.spacedBy(Dimens.sm),
-        ) {
-            OutlinedTextField(
-                value = url,
-                onValueChange = onUrlChange,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.url_hint)) },
-                singleLine = true,
-                leadingIcon = { Icon(Icons.Rounded.Link, contentDescription = null) },
-                trailingIcon = {
-                    if (url.isNotEmpty()) {
-                        IconButton(onClick = onClear) {
-                            Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.cd_clear))
-                        }
+    val noIndicator = MaterialTheme.colorScheme.onSurface.copy(alpha = 0f)
+    Column(
+        modifier = modifier.padding(Dimens.md),
+        verticalArrangement = Arrangement.spacedBy(Dimens.sm),
+    ) {
+        TextField(
+            value = url,
+            onValueChange = onUrlChange,
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.extraLarge,
+            colors =
+                TextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    focusedIndicatorColor = noIndicator,
+                    unfocusedIndicatorColor = noIndicator,
+                    disabledIndicatorColor = noIndicator,
+                    errorIndicatorColor = noIndicator,
+                ),
+            label = { Text(stringResource(R.string.url_hint)) },
+            singleLine = true,
+            leadingIcon = { Icon(Icons.Rounded.Link, contentDescription = null) },
+            trailingIcon = {
+                if (url.isNotEmpty()) {
+                    IconButton(onClick = onClear) {
+                        Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.cd_clear))
                     }
+                }
+            },
+            supportingText =
+                if (clipboardHint) {
+                    { Text(stringResource(R.string.clipboard_hint)) }
+                } else {
+                    null
                 },
-                supportingText =
-                    if (clipboardHint) {
-                        { Text(stringResource(R.string.clipboard_hint)) }
-                    } else {
-                        null
-                    },
-                keyboardOptions =
-                    KeyboardOptions(
-                        keyboardType = KeyboardType.Uri,
-                        imeAction = ImeAction.Go,
-                    ),
-                keyboardActions = KeyboardActions(onGo = { onFetch() }),
-            )
+            keyboardOptions =
+                KeyboardOptions(
+                    keyboardType = KeyboardType.Uri,
+                    imeAction = ImeAction.Go,
+                ),
+            keyboardActions = KeyboardActions(onGo = { onFetch() }),
+        )
 
-            Row(horizontalArrangement = Arrangement.spacedBy(Dimens.xs)) {
-                OutlinedButton(
-                    onClick = onPaste,
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Icon(
-                        Icons.Rounded.ContentPaste,
-                        contentDescription = null,
-                        modifier = Modifier.size(Dimens.iconSm),
-                    )
-                    Spacer(Modifier.width(Dimens.xxs))
-                    Text(stringResource(R.string.action_paste))
-                }
-                Button(
-                    onClick = onFetch,
-                    enabled = url.isNotBlank() && !loading,
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Icon(
-                        Icons.Rounded.Search,
-                        contentDescription = null,
-                        modifier = Modifier.size(Dimens.iconSm),
-                    )
-                    Spacer(Modifier.width(Dimens.xxs))
-                    Text(stringResource(if (loading) R.string.fetching else R.string.action_fetch))
-                }
+        Row(horizontalArrangement = Arrangement.spacedBy(Dimens.xs)) {
+            OutlinedButton(
+                onClick = onPaste,
+                shape = MaterialTheme.shapes.extraLarge,
+                modifier = Modifier.weight(1f),
+            ) {
+                Icon(
+                    Icons.Rounded.ContentPaste,
+                    contentDescription = null,
+                    modifier = Modifier.size(Dimens.iconSm),
+                )
+                Spacer(Modifier.width(Dimens.xxs))
+                Text(stringResource(R.string.action_paste))
+            }
+            Button(
+                onClick = onFetch,
+                enabled = url.isNotBlank() && !loading,
+                shape = MaterialTheme.shapes.extraLarge,
+                modifier = Modifier.weight(1f),
+            ) {
+                Icon(
+                    Icons.Rounded.Search,
+                    contentDescription = null,
+                    modifier = Modifier.size(Dimens.iconSm),
+                )
+                Spacer(Modifier.width(Dimens.xxs))
+                Text(stringResource(if (loading) R.string.fetching else R.string.action_fetch))
             }
         }
     }

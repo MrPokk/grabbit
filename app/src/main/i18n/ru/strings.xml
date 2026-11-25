@@ -161,7 +161,7 @@
     <string name="settings_filename_desc">Шаблон yt-dlp, например %%(title)s - %%(uploader)s</string>
     <string name="settings_language">Язык</string>
     <string name="settings_language_system">Системный</string>
-    <string name="settings_legal">Скачивайте только для личного использования. Уважайте авторские права и правила сайтов.</string>
+    <string name="settings_legal">Скачивайте только для личного использования. Уважайте авторские права и правила сайтов. Версия %1$s</string>
     <string name="settings_pick_folder">Выбрать папку</string>
     <string name="settings_proxy">Прокси</string>
     <string name="settings_proxy_desc">например, socks5://127.0.0.1:1080</string>

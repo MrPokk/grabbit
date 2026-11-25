@@ -3,6 +3,7 @@ package com.grabbit.ui.settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -73,6 +74,7 @@ fun SettingsScreen(
                     .fillMaxSize()
                     .nestedScroll(scrollBehavior.nestedScrollConnection),
             contentPadding = PaddingValues(bottom = Dimens.xl),
+            verticalArrangement = Arrangement.spacedBy(Dimens.sm),
         ) {
             item { SectionHeader(stringResource(R.string.settings_section_appearance)) }
             item { AppearanceSection(settings, viewModel) }

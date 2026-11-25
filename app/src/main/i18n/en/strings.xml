@@ -149,7 +149,7 @@
     <string name="settings_filename_desc">yt-dlp output template, e.g. %%(title)s - %%(uploader)s</string>
     <string name="settings_language">Language</string>
     <string name="settings_language_system">System default</string>
-    <string name="settings_legal">Downloads are for personal use. Respect copyright and each site\'s terms.</string>
+    <string name="settings_legal">Downloads are for personal use. Respect copyright and each site\'s terms. v%1$s</string>
     <string name="settings_pick_folder">Choose folder</string>
     <string name="settings_proxy">Proxy</string>
     <string name="settings_proxy_desc">e.g. socks5://127.0.0.1:1080</string>

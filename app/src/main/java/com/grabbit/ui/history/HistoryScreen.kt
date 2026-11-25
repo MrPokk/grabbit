@@ -8,6 +8,7 @@ import android.text.format.DateUtils
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -207,42 +208,44 @@ private fun HistoryRow(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        IconButton(onClick = { menuOpen = true }) {
-            Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.cd_more))
-        }
-        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.action_open)) },
-                leadingIcon = { Icon(Icons.Rounded.OpenInNew, contentDescription = null) },
-                onClick = {
-                    menuOpen = false
-                    onOpen()
-                },
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.action_share)) },
-                leadingIcon = { Icon(Icons.Rounded.Share, contentDescription = null) },
-                onClick = {
-                    menuOpen = false
-                    onShare()
-                },
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.action_redownload)) },
-                leadingIcon = { Icon(Icons.Rounded.Refresh, contentDescription = null) },
-                onClick = {
-                    menuOpen = false
-                    onRedownload()
-                },
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.action_delete)) },
-                leadingIcon = { Icon(Icons.Rounded.Delete, contentDescription = null) },
-                onClick = {
-                    menuOpen = false
-                    onDelete()
-                },
-            )
+        Box {
+            IconButton(onClick = { menuOpen = true }) {
+                Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.cd_more))
+            }
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.action_open)) },
+                    leadingIcon = { Icon(Icons.Rounded.OpenInNew, contentDescription = null) },
+                    onClick = {
+                        menuOpen = false
+                        onOpen()
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.action_share)) },
+                    leadingIcon = { Icon(Icons.Rounded.Share, contentDescription = null) },
+                    onClick = {
+                        menuOpen = false
+                        onShare()
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.action_redownload)) },
+                    leadingIcon = { Icon(Icons.Rounded.Refresh, contentDescription = null) },
+                    onClick = {
+                        menuOpen = false
+                        onRedownload()
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.action_delete)) },
+                    leadingIcon = { Icon(Icons.Rounded.Delete, contentDescription = null) },
+                    onClick = {
+                        menuOpen = false
+                        onDelete()
+                    },
+                )
+            }
         }
     }
 }

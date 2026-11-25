@@ -10,6 +10,7 @@ object Dimens {
     val sm: Dp = 12.dp
     val md: Dp = 16.dp
     val lg: Dp = 24.dp
+    val screenHorizontal: Dp = lg
     val xl: Dp = 32.dp
 
     val iconSm: Dp = 18.dp

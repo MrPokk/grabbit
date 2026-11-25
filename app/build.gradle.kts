@@ -3,6 +3,7 @@ import org.gradle.api.file.FileCopyDetails
 import org.gradle.api.tasks.Sync
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.io.File
+import java.util.Properties
 
 val i18nRoot = layout.projectDirectory.dir("src/main/i18n").asFile
 val defaultLanguage = "en"
@@ -25,15 +26,51 @@ plugins {
     alias(libs.plugins.ktlint)
 }
 
+val versionPropertiesFile = rootProject.file("version.properties")
+val versionProperties = Properties().apply { versionPropertiesFile.inputStream().use(::load) }
+val majorVersion = versionProperties.getProperty("MAJOR").toInt()
+val minorVersion = versionProperties.getProperty("MINOR").toInt()
+val lastBuild = versionProperties.getProperty("BUILD").toInt()
+val skipVersionBump = providers.gradleProperty("skipVersionBump").isPresent
+val buildVersion = if (skipVersionBump) lastBuild else lastBuild + 1
+val versionNameValue = "$majorVersion.$minorVersion.$buildVersion"
+val versionPropertiesContent = "MAJOR=$majorVersion\nMINOR=$minorVersion\nBUILD=$buildVersion\n"
+
+tasks.register("bumpVersion") {
+    val propertiesFile = versionPropertiesFile
+    val propertiesContent = versionPropertiesContent
+    doLast {
+        if (propertiesFile.readText() != propertiesContent) {
+            propertiesFile.writeText(propertiesContent)
+        }
+    }
+}
+
+if (!skipVersionBump) {
+    tasks
+        .matching { task ->
+            task.name.matches(Regex("^(assemble|bundle|install)(Debug|Release)$"))
+        }.configureEach {
+            val propertiesFile = versionPropertiesFile
+            val propertiesContent = versionPropertiesContent
+            doLast {
+                if (propertiesFile.readText() != propertiesContent) {
+                    propertiesFile.writeText(propertiesContent)
+                }
+            }
+        }
+}
+
 val generateI18nRes =
     tasks.register<Sync>("generateI18nRes") {
+        val english = defaultLanguage
         from(i18nRoot) {
             include("**/*.xml")
             eachFile(
                 Action<FileCopyDetails> {
                     val code = path.substringBefore('/')
                     val qualifier = code.replace("-", "-r")
-                    setPath(if (code == defaultLanguage) "values/$name" else "values-$qualifier/$name")
+                    setPath(if (code == english) "values/$name" else "values-$qualifier/$name")
                 },
             )
         }
@@ -62,8 +99,8 @@ android {
         applicationId = "com.grabbit"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = buildVersion
+        versionName = versionNameValue
 
         vectorDrawables.useSupportLibrary = true
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

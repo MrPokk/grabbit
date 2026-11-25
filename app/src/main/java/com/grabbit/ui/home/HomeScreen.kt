@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -61,7 +62,12 @@ fun HomeScreen(
                 Modifier
                     .weight(1f)
                     .nestedScroll(scrollBehavior.nestedScrollConnection),
-            contentPadding = PaddingValues(start = Dimens.md, end = Dimens.md, top = Dimens.xxs),
+            contentPadding =
+                PaddingValues(
+                    start = Dimens.screenHorizontal,
+                    end = Dimens.screenHorizontal,
+                    top = Dimens.xxs,
+                ),
             verticalArrangement = Arrangement.spacedBy(Dimens.sm),
         ) {
             homeMediaContent(state, viewModel)
@@ -75,7 +81,7 @@ fun HomeScreen(
             onClear = viewModel::clear,
             onPaste = viewModel::pasteFromClipboard,
             onFetch = viewModel::fetch,
-            modifier = Modifier.imePadding(),
+            modifier = Modifier.padding(horizontal = Dimens.screenHorizontal).imePadding(),
         )
     }
 

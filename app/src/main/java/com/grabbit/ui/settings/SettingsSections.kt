@@ -155,23 +155,25 @@ internal fun LanguageSection(
     viewModel: SettingsViewModel,
 ) {
     SettingsCard {
-        Text(
-            text = stringResource(R.string.settings_language),
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.padding(horizontal = Dimens.md, vertical = Dimens.sm),
-        )
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.xs)) {
-            FilterChip(
-                selected = settings.language == null,
-                onClick = { viewModel.setLanguage(null) },
-                label = { Text(stringResource(R.string.settings_language_system)) },
+        Column(Modifier.padding(Dimens.md)) {
+            Text(
+                text = stringResource(R.string.settings_language),
+                style = MaterialTheme.typography.bodyLarge,
             )
-            Languages.SUPPORTED.forEach { tag ->
+            Spacer(Modifier.height(Dimens.xs))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.xs)) {
                 FilterChip(
-                    selected = settings.language == tag,
-                    onClick = { viewModel.setLanguage(tag) },
-                    label = { Text(Languages.displayName(tag)) },
+                    selected = settings.language == null,
+                    onClick = { viewModel.setLanguage(null) },
+                    label = { Text(stringResource(R.string.settings_language_system)) },
                 )
+                Languages.SUPPORTED.forEach { tag ->
+                    FilterChip(
+                        selected = settings.language == tag,
+                        onClick = { viewModel.setLanguage(tag) },
+                        label = { Text(Languages.displayName(tag)) },
+                    )
+                }
             }
         }
     }

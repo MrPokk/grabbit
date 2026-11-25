@@ -188,7 +188,7 @@ internal fun AboutSection() {
         }
         HorizontalDivider()
         Text(
-            text = stringResource(R.string.settings_legal),
+            text = stringResource(R.string.settings_legal, BuildConfig.VERSION_NAME),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(Dimens.md),

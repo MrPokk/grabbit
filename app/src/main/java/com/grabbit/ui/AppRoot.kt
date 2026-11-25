@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -70,13 +71,7 @@ fun AppRoot(
                             selected = currentRoute == destination.route,
                             onClick = {
                                 if (currentRoute != destination.route) {
-                                    navController.navigate(destination.route) {
-                                        popUpTo(navController.graph.findStartDestination().id) {
-                                            saveState = true
-                                        }
-                                        launchSingleTop = true
-                                        restoreState = true
-                                    }
+                                    navController.navigateToTopLevel(destination.route)
                                 }
                             },
                             icon = {
@@ -98,18 +93,12 @@ fun AppRoot(
                 HomeScreen(
                     incomingLink = link,
                     onLinkConsumed = onConsumeLink,
-                    onOpenQueue = {
-                        navController.navigate(Routes.QUEUE) {
-                            popUpTo(Routes.DOWNLOAD)
-                        }
-                    },
+                    onOpenQueue = { navController.navigateToTopLevel(Routes.QUEUE) },
                 )
             }
             composable(Routes.QUEUE) {
                 QueueScreen(
-                    onOpenSettings = {
-                        navController.navigate(Routes.SETTINGS) { launchSingleTop = true }
-                    },
+                    onOpenSettings = { navController.navigateToTopLevel(Routes.SETTINGS) },
                 )
             }
             composable(Routes.HISTORY) {
@@ -124,5 +113,14 @@ fun AppRoot(
                 ConvertScreen(onBack = { navController.popBackStack() })
             }
         }
+    }
+}
+
+private fun NavController.navigateToTopLevel(route: String) {
+    navigate(route) {
+        // Saved state is keyed to the start destination in a flat graph, so restoring it would
+        // put the tab being left back on top instead of the requested one.
+        popUpTo(graph.findStartDestination().id)
+        launchSingleTop = true
     }
 }
