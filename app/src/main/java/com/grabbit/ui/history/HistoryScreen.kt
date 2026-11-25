@@ -56,11 +56,18 @@ import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.grabbit.R
+import com.grabbit.core.AppLog
 import com.grabbit.core.Formatters
+import com.grabbit.core.UiValues
 import com.grabbit.data.db.HistoryEntity
 import com.grabbit.ui.components.EmptyState
 import com.grabbit.ui.components.Thumbnail
+import com.grabbit.ui.theme.Dimens
 
+private const val TAG = "HistoryScreen"
+private val HistoryThumbnailWidth = 88.dp
+
+/** History screen with search, saved-file actions and deletion confirmation. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(viewModel: HistoryViewModel = hiltViewModel()) {
@@ -79,31 +86,34 @@ fun HistoryScreen(viewModel: HistoryViewModel = hiltViewModel()) {
         OutlinedTextField(
             value = query,
             onValueChange = viewModel::setQuery,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Dimens.md),
             placeholder = { Text(stringResource(R.string.history_search)) },
             leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
             singleLine = true,
         )
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(Dimens.xs))
 
         if (items.isEmpty()) {
             EmptyState(
                 icon = Icons.Rounded.History,
-                title = stringResource(
-                    if (query.isBlank()) R.string.history_empty_title else R.string.history_empty_search,
-                ),
+                title =
+                    stringResource(
+                        if (query.isBlank()) R.string.history_empty_title else R.string.history_empty_search,
+                    ),
                 body = stringResource(R.string.history_empty_body),
             )
         } else {
             LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .nestedScroll(scrollBehavior.nestedScrollConnection),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 32.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .nestedScroll(scrollBehavior.nestedScrollConnection),
+                contentPadding = PaddingValues(start = Dimens.md, end = Dimens.md, bottom = Dimens.xl),
+                verticalArrangement = Arrangement.spacedBy(Dimens.xs),
             ) {
                 items(items, key = { it.id }) { entity ->
                     HistoryRow(
@@ -148,30 +158,34 @@ private fun HistoryRow(
     onRedownload: () -> Unit,
     onDelete: () -> Unit,
 ) {
+    val context = LocalContext.current
     var menuOpen by remember { mutableStateOf(false) }
-    val relativeDate = remember(entity.createdAt) {
-        DateUtils.getRelativeTimeSpanString(
-            entity.createdAt,
-            System.currentTimeMillis(),
-            DateUtils.MINUTE_IN_MILLIS,
-        ).toString()
-    }
+    val relativeDate =
+        remember(entity.createdAt) {
+            DateUtils
+                .getRelativeTimeSpanString(
+                    entity.createdAt,
+                    System.currentTimeMillis(),
+                    DateUtils.MINUTE_IN_MILLIS,
+                ).toString()
+        }
 
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onOpen)
-            .padding(vertical = 6.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onOpen)
+                .padding(vertical = Dimens.xxs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Thumbnail(
             url = entity.thumbnail,
-            modifier = Modifier
-                .width(88.dp)
-                .aspectRatio(16f / 9f),
-            corner = 10.dp,
+            modifier =
+                Modifier
+                    .width(HistoryThumbnailWidth)
+                    .aspectRatio(UiValues.THUMBNAIL_ASPECT_RATIO),
         )
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(Dimens.sm))
         Column(Modifier.weight(1f)) {
             Text(
                 text = entity.title,
@@ -180,12 +194,13 @@ private fun HistoryRow(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = stringResource(
-                    R.string.history_meta,
-                    entity.formatLabel,
-                    Formatters.bytes(entity.sizeBytes),
-                    relativeDate,
-                ),
+                text =
+                    stringResource(
+                        R.string.history_meta,
+                        entity.formatLabel,
+                        Formatters.bytes(context.resources, entity.sizeBytes),
+                        relativeDate,
+                    ),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
@@ -232,27 +247,39 @@ private fun HistoryRow(
     }
 }
 
-private fun openFile(context: Context, entity: HistoryEntity) {
+private fun openFile(
+    context: Context,
+    entity: HistoryEntity,
+) {
     val uri = entity.uri.toUri()
-    val intent = Intent(Intent.ACTION_VIEW).apply {
-        setDataAndType(uri, entity.mimeType)
-        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    }
+    val intent =
+        Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, entity.mimeType)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
     try {
         context.startActivity(intent)
     } catch (e: ActivityNotFoundException) {
+        AppLog.e(TAG, "No activity can open a history file", e)
         Toast.makeText(context, R.string.file_missing, Toast.LENGTH_SHORT).show()
     }
 }
 
-private fun shareFile(context: Context, entity: HistoryEntity) {
+private fun shareFile(
+    context: Context,
+    entity: HistoryEntity,
+) {
     val uri: Uri = entity.uri.toUri()
-    val intent = Intent(Intent.ACTION_SEND).apply {
-        type = entity.mimeType
-        putExtra(Intent.EXTRA_STREAM, uri)
-        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    }
-    runCatching {
+    val intent =
+        Intent(Intent.ACTION_SEND).apply {
+            type = entity.mimeType
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+    try {
         context.startActivity(Intent.createChooser(intent, null))
+    } catch (e: ActivityNotFoundException) {
+        AppLog.e(TAG, "No activity can open a history file", e)
+        Toast.makeText(context, R.string.file_missing, Toast.LENGTH_SHORT).show()
     }
 }

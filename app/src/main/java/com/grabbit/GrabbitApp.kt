@@ -1,7 +1,9 @@
 package com.grabbit
 
 import android.app.Application
-import android.util.Log
+import com.grabbit.core.AppLog
+import com.grabbit.core.Timing
+import com.grabbit.core.suspendRunCatching
 import com.grabbit.data.settings.SettingsRepository
 import com.grabbit.data.ytdlp.YtDlpEngine
 import com.grabbit.service.DownloadService
@@ -12,9 +14,12 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+private const val TAG = "GrabbitApp"
+private const val CRASH_TAG = "GrabbitCrash"
+
+/** Application entry point: installs crash logging and warms up yt-dlp off the main thread. */
 @HiltAndroidApp
 class GrabbitApp : Application() {
-
     @Inject
     lateinit var ytDlp: YtDlpEngine
 
@@ -30,15 +35,18 @@ class GrabbitApp : Application() {
 
         // Unpack the bundled python / yt-dlp / ffmpeg binaries off the main thread
         // so the first download does not have to wait for it.
-        appScope.launch { runCatching { ytDlp.ensureInitialized() } }
+        appScope.launch {
+            suspendRunCatching { ytDlp.ensureInitialized() }
+                .onFailure { e -> AppLog.e(TAG, "yt-dlp initialization failed", e) }
+        }
         appScope.launch { autoUpdateIfDue() }
     }
 
-    /** Keep crashes visible in logcat (`adb logcat -s GrabbitCrash:YtDlpEngine`). */
+    /** Keeps crashes visible in logcat (`adb logcat -s GrabbitCrash`). */
     private fun installCrashLogger() {
         val previous = Thread.getDefaultUncaughtExceptionHandler() ?: return
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-            Log.e("GrabbitCrash", "Uncaught exception on ${thread.name}", throwable)
+            AppLog.e(CRASH_TAG, "Uncaught exception on ${thread.name}", throwable)
             previous.uncaughtException(thread, throwable)
         }
     }
@@ -46,8 +54,9 @@ class GrabbitApp : Application() {
     private suspend fun autoUpdateIfDue() {
         val current = settings.current()
         if (!current.autoCheckUpdates) return
-        val dayMillis = 24L * 60L * 60L * 1000L
-        if (System.currentTimeMillis() - current.lastUpdateCheck < dayMillis) return
-        runCatching { ytDlp.update() }
+        val sinceLastCheck = System.currentTimeMillis() - current.lastUpdateCheck
+        if (sinceLastCheck < Timing.UPDATE_CHECK_INTERVAL.inWholeMilliseconds) return
+        suspendRunCatching { ytDlp.update() }
+            .onFailure { e -> AppLog.e(TAG, "yt-dlp auto-update failed", e) }
     }
 }

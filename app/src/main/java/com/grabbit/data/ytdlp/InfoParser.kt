@@ -16,10 +16,17 @@ import kotlinx.serialization.json.longOrNull
  * per-format codec data, neither of which the mapper exposes.
  */
 object InfoParser {
+    private val json =
+        Json {
+            ignoreUnknownKeys = true
+            isLenient = true
+        }
 
-    private val json = Json { ignoreUnknownKeys = true; isLenient = true }
-
-    fun parse(raw: String, sourceUrl: String): FetchedMedia {
+    /** Parses yt-dlp JSON into a single item or a playlist; [sourceUrl] is the submitted link. */
+    fun parse(
+        raw: String,
+        sourceUrl: String,
+    ): FetchedMedia {
         val root = json.parseToJsonElement(raw.trim()).jsonObject
         val entries = root.array("entries")
         return if (!entries.isNullOrEmpty()) {
@@ -29,12 +36,16 @@ object InfoParser {
         }
     }
 
-    private fun parseSingle(root: JsonObject, sourceUrl: String): FetchedMedia.Single {
+    private fun parseSingle(
+        root: JsonObject,
+        sourceUrl: String,
+    ): FetchedMedia.Single {
         val id = root.string("id") ?: sourceUrl.hashCode().toString()
         val title = root.string("title") ?: root.string("fulltitle") ?: id
-        val formats = root.array("formats").orEmpty().mapNotNull { element ->
-            (element as? JsonObject)?.let { parseFormat(it) }
-        }
+        val formats =
+            root.array("formats").orEmpty().mapNotNull { element ->
+                (element as? JsonObject)?.let { parseFormat(it) }
+            }
         return FetchedMedia.Single(
             MediaInfo(
                 id = id,
@@ -49,30 +60,35 @@ object InfoParser {
         )
     }
 
-    private fun parseCollection(root: JsonObject, entries: JsonArray, sourceUrl: String): FetchedMedia.Collection {
+    private fun parseCollection(
+        root: JsonObject,
+        entries: JsonArray,
+        sourceUrl: String,
+    ): FetchedMedia.Collection {
         val seen = mutableSetOf<Int>()
         var nextIndex = 1
-        val items = entries.mapNotNull { element ->
-            val obj = element as? JsonObject ?: return@mapNotNull null
-            val id = obj.string("id") ?: return@mapNotNull null
-            var index = obj.int("playlist_index") ?: obj.int("index") ?: 0
-            if (index <= 0) index = nextIndex
-            // Dynamic playlists (YouTube Mix / radio) can report the same
-            // playlist_index for several entries. Duplicate keys in the
-            // LazyColumn crash the app, so make every index unique and
-            // increasing.
-            while (index in seen) index++
-            seen.add(index)
-            nextIndex = maxOf(nextIndex, index + 1)
-            PlaylistItem(
-                index = index,
-                id = id,
-                title = obj.string("title") ?: id,
-                url = entryUrl(obj, sourceUrl, id),
-                durationSeconds = obj.seconds("duration"),
-                thumbnail = thumbnail(obj),
-            )
-        }
+        val items =
+            entries.mapNotNull { element ->
+                val obj = element as? JsonObject ?: return@mapNotNull null
+                val id = obj.string("id") ?: return@mapNotNull null
+                var index = obj.int("playlist_index") ?: obj.int("index") ?: 0
+                if (index <= 0) index = nextIndex
+                // Dynamic playlists (YouTube Mix / radio) can report the same
+                // playlist_index for several entries. Duplicate keys in the
+                // LazyColumn crash the app, so make every index unique and
+                // increasing.
+                while (index in seen) index++
+                seen.add(index)
+                nextIndex = maxOf(nextIndex, index + 1)
+                PlaylistItem(
+                    index = index,
+                    id = id,
+                    title = obj.string("title") ?: id,
+                    url = entryUrl(obj, sourceUrl, id),
+                    durationSeconds = obj.seconds("duration"),
+                    thumbnail = thumbnail(obj),
+                )
+            }
         val declaredCount = root.int("playlist_count") ?: root.int("n_entries")
         return FetchedMedia.Collection(
             title = root.string("title") ?: root.string("id") ?: sourceUrl,
@@ -113,7 +129,11 @@ object InfoParser {
         }
     }
 
-    private fun entryUrl(entry: JsonObject, sourceUrl: String, id: String): String {
+    private fun entryUrl(
+        entry: JsonObject,
+        sourceUrl: String,
+        id: String,
+    ): String {
         entry.string("webpage_url")?.takeIf { it.startsWith("http") }?.let { return it }
         entry.string("url")?.takeIf { it.startsWith("http") }?.let { return it }
         val ieKey = entry.string("ie_key") ?: entry.string("extractor_key") ?: ""
@@ -133,8 +153,7 @@ object InfoParser {
 
     private fun JsonObject.double(key: String): Double? = (this[key] as? JsonPrimitive)?.doubleOrNull
 
-    private fun JsonObject.seconds(key: String): Long =
-        ((this[key] as? JsonPrimitive)?.doubleOrNull ?: 0.0).toLong()
+    private fun JsonObject.seconds(key: String): Long = ((this[key] as? JsonPrimitive)?.doubleOrNull ?: 0.0).toLong()
 
     private fun JsonObject.array(key: String): JsonArray? = this[key] as? JsonArray
 }

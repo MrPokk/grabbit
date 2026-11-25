@@ -5,10 +5,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class InfoParserTest {
-
     @Test
     fun parsesSingleVideo() {
-        val json = """
+        val json =
+            """
             {
               "id": "abc",
               "title": "Test video",
@@ -23,7 +23,7 @@ class InfoParserTest {
                  "acodec": "mp4a.40.2", "abr": 128.0}
               ]
             }
-        """.trimIndent()
+            """.trimIndent()
 
         val media = InfoParser.parse(json, "https://youtu.be/abc") as FetchedMedia.Single
         assertEquals("Test video", media.title)
@@ -36,7 +36,8 @@ class InfoParserTest {
 
     @Test
     fun parsesPlaylistAndMarksItTruncated() {
-        val json = """
+        val json =
+            """
             {
               "_type": "playlist",
               "title": "My playlist",
@@ -47,7 +48,7 @@ class InfoParserTest {
                 {"id": "b", "title": "Second", "duration": 20, "ie_key": "Youtube"}
               ]
             }
-        """.trimIndent()
+            """.trimIndent()
 
         val media = InfoParser.parse(json, "https://youtube.com/playlist?list=x") as FetchedMedia.Collection
         assertEquals(2, media.items.size)
@@ -58,7 +59,8 @@ class InfoParserTest {
 
     @Test
     fun skipsStoryboardFormats() {
-        val json = """
+        val json =
+            """
             {
               "id": "x",
               "title": "x",
@@ -67,7 +69,7 @@ class InfoParserTest {
                 {"format_id": "18", "ext": "mp4", "height": 360, "vcodec": "avc1", "acodec": "mp4a"}
               ]
             }
-        """.trimIndent()
+            """.trimIndent()
 
         val media = InfoParser.parse(json, "https://example.com/x") as FetchedMedia.Single
         assertEquals(1, media.info.formats.size)

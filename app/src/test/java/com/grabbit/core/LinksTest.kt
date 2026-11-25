@@ -7,7 +7,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LinksTest {
-
     @Test
     fun extractsPlainUrl() {
         assertEquals("https://youtu.be/abc123", Links.extract("https://youtu.be/abc123"))

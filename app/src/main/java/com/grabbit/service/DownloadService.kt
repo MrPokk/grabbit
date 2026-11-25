@@ -1,13 +1,13 @@
 package com.grabbit.service
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
-import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
@@ -19,7 +19,10 @@ import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import com.grabbit.MainActivity
 import com.grabbit.R
+import com.grabbit.core.AppLog
 import com.grabbit.core.Formatters
+import com.grabbit.core.Timing
+import com.grabbit.core.UiValues
 import com.grabbit.data.download.DownloadEngine
 import com.grabbit.data.download.DownloadTask
 import com.grabbit.data.download.TaskStatus
@@ -32,6 +35,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+private const val TAG = "DownloadService"
+
 /**
  * Foreground anchor for the download queue. The actual work happens in
  * [DownloadEngine]; this service keeps the process alive, shows progress and
@@ -39,7 +44,6 @@ import javax.inject.Inject
  */
 @AndroidEntryPoint
 class DownloadService : Service() {
-
     @Inject
     lateinit var engine: DownloadEngine
 
@@ -53,7 +57,7 @@ class DownloadService : Service() {
         createChannels(this)
         ServiceCompat.startForeground(
             this,
-            FOREGROUND_ID,
+            UiValues.FOREGROUND_NOTIFICATION_ID,
             buildForeground(engine.tasks.value),
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
@@ -66,7 +70,7 @@ class DownloadService : Service() {
             engine.tasks.collect { tasks ->
                 updateNotifications(tasks)
                 if (tasks.none { it.status.isActive }) {
-                    delay(1500)
+                    delay(Timing.SERVICE_STOP_GRACE.inWholeMilliseconds)
                     if (engine.tasks.value.none { it.status.isActive }) {
                         ServiceCompat.stopForeground(this@DownloadService, ServiceCompat.STOP_FOREGROUND_REMOVE)
                         stopSelf()
@@ -76,7 +80,11 @@ class DownloadService : Service() {
         }
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int,
+    ): Int {
         val id = intent?.getStringExtra(EXTRA_TASK_ID)
         when (intent?.action) {
             ACTION_PAUSE -> id?.let { engine.pause(it) }
@@ -91,27 +99,30 @@ class DownloadService : Service() {
         super.onDestroy()
     }
 
-    // Notifications are only posted after canPostNotifications() succeeds and every
-    // call is wrapped in runCatching, so a revoked permission cannot crash the service.
+    // A revoked notification permission must not crash the service, so every
+    // post goes through postNotification().
     @SuppressLint("MissingPermission")
     private fun updateNotifications(tasks: List<DownloadTask>) {
         val manager = NotificationManagerCompat.from(this)
         if (!canPostNotifications()) {
             // Still refresh the foreground notification; the system handles the
             // missing permission case on Android 13+.
-            runCatching { manager.notify(FOREGROUND_ID, buildForeground(tasks)) }
+            postNotification(manager, UiValues.FOREGROUND_NOTIFICATION_ID, buildForeground(tasks))
             return
         }
 
-        val visible = tasks.filter {
-            it.status.isActive || it.status == TaskStatus.COMPLETED ||
-                it.status == TaskStatus.FAILED || it.status == TaskStatus.PAUSED
-        }
+        val visible =
+            tasks.filter {
+                it.status.isActive ||
+                    it.status == TaskStatus.COMPLETED ||
+                    it.status == TaskStatus.FAILED ||
+                    it.status == TaskStatus.PAUSED
+            }
 
         visible.forEach { task ->
             val id = notificationId(task.id)
             postedTaskIds.add(id)
-            runCatching { manager.notify(id, buildTaskNotification(task)) }
+            postNotification(manager, id, buildTaskNotification(task))
         }
 
         val stillVisible = visible.map { notificationId(it.id) }.toSet()
@@ -120,61 +131,85 @@ class DownloadService : Service() {
             postedTaskIds.remove(stale)
         }
 
-        runCatching { manager.notify(FOREGROUND_ID, buildForeground(tasks)) }
+        postNotification(manager, UiValues.FOREGROUND_NOTIFICATION_ID, buildForeground(tasks))
+    }
+
+    private fun postNotification(
+        manager: NotificationManagerCompat,
+        id: Int,
+        notification: Notification,
+    ) {
+        try {
+            manager.notify(id, notification)
+        } catch (e: SecurityException) {
+            AppLog.e(TAG, "notification permission was revoked", e)
+        }
     }
 
     private fun buildForeground(tasks: List<DownloadTask>): Notification {
         val active = tasks.filter { it.status.isActive }
         val first = active.firstOrNull()
-        val text = when {
-            active.isEmpty() -> getString(R.string.notif_summary_idle)
-            active.size == 1 && first != null -> statusText(first)
-            else -> resources.getQuantityString(R.plurals.notif_summary_text, active.size, active.size)
-        }
-        val builder = NotificationCompat.Builder(this, CHANNEL_DOWNLOADS)
-            .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(getString(R.string.app_name))
-            .setContentText(text)
-            .setContentIntent(openAppIntent())
-            .setOngoing(active.isNotEmpty())
-            .setSilent(true)
-            .setOnlyAlertOnce(true)
-            .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+        val text =
+            when {
+                active.isEmpty() -> getString(R.string.notif_summary_idle)
+                active.size == 1 && first != null -> statusText(first)
+                else -> resources.getQuantityString(R.plurals.notif_summary_text, active.size, active.size)
+            }
+        val builder =
+            NotificationCompat
+                .Builder(this, CHANNEL_DOWNLOADS)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setContentTitle(getString(R.string.app_name))
+                .setContentText(text)
+                .setContentIntent(openAppIntent())
+                .setOngoing(active.isNotEmpty())
+                .setSilent(true)
+                .setOnlyAlertOnce(true)
+                .setCategory(NotificationCompat.CATEGORY_PROGRESS)
 
         if (first != null) {
-            builder.setProgress(100, (first.progress * 100).toInt(), first.status == TaskStatus.PREPARING)
+            builder.setProgress(
+                UiValues.PROGRESS_MAX,
+                Formatters.percent(first.progress),
+                first.status == TaskStatus.PREPARING,
+            )
         }
         return builder.build()
     }
 
     private fun buildTaskNotification(task: DownloadTask): Notification {
-        val title = when (task.status) {
-            TaskStatus.COMPLETED -> getString(R.string.notif_title_complete)
-            TaskStatus.FAILED -> getString(R.string.notif_text_failed)
-            else -> getString(R.string.notif_title_downloading, task.title)
-        }
-        val text = when (task.status) {
-            TaskStatus.COMPLETED -> task.fileName ?: getString(R.string.notif_title_complete)
-            TaskStatus.FAILED -> task.error?.let { getString(it.messageRes) }
-                ?: getString(R.string.notif_text_failed)
+        val title =
+            when (task.status) {
+                TaskStatus.COMPLETED -> getString(R.string.notif_title_complete)
+                TaskStatus.FAILED -> getString(R.string.notif_text_failed)
+                else -> getString(R.string.notif_title_downloading, task.title)
+            }
+        val text =
+            when (task.status) {
+                TaskStatus.COMPLETED -> task.fileName ?: getString(R.string.notif_title_complete)
+                TaskStatus.FAILED ->
+                    task.error?.let { getString(it.messageRes) }
+                        ?: getString(R.string.notif_text_failed)
 
-            TaskStatus.PAUSED -> getString(R.string.status_paused)
-            else -> statusText(task)
-        }
+                TaskStatus.PAUSED -> getString(R.string.status_paused)
+                else -> statusText(task)
+            }
 
-        val builder = NotificationCompat.Builder(this, CHANNEL_DOWNLOADS)
-            .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(title)
-            .setContentText(text)
-            .setContentIntent(openAppIntent())
-            .setGroup(GROUP_KEY)
-            .setOnlyAlertOnce(true)
-            .setAutoCancel(task.status == TaskStatus.COMPLETED)
+        val builder =
+            NotificationCompat
+                .Builder(this, CHANNEL_DOWNLOADS)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setContentTitle(title)
+                .setContentText(text)
+                .setContentIntent(openAppIntent())
+                .setGroup(GROUP_KEY)
+                .setOnlyAlertOnce(true)
+                .setAutoCancel(task.status == TaskStatus.COMPLETED)
 
         if (task.status.isActive) {
             builder.setProgress(
-                100,
-                (task.progress * 100).toInt(),
+                UiValues.PROGRESS_MAX,
+                Formatters.percent(task.progress),
                 task.status == TaskStatus.PREPARING,
             )
             builder.setOngoing(true)
@@ -202,16 +237,20 @@ class DownloadService : Service() {
             TaskStatus.QUEUED -> getString(R.string.status_queued)
             else -> {
                 val speed = task.speed
-                if (speed != null) getString(R.string.notif_text_progress, percent, speed)
-                else getString(R.string.notif_text_progress, percent, getString(R.string.status_downloading))
+                if (speed != null) {
+                    getString(R.string.notif_text_progress, percent, speed)
+                } else {
+                    getString(R.string.notif_text_progress, percent, getString(R.string.status_downloading))
+                }
             }
         }
     }
 
     private fun openAppIntent(): PendingIntent {
-        val intent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-        }
+        val intent =
+            Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
         return PendingIntent.getActivity(
             this,
             0,
@@ -220,11 +259,15 @@ class DownloadService : Service() {
         )
     }
 
-    private fun serviceAction(action: String, taskId: String): PendingIntent {
-        val intent = Intent(this, DownloadService::class.java).apply {
-            this.action = action
-            putExtra(EXTRA_TASK_ID, taskId)
-        }
+    private fun serviceAction(
+        action: String,
+        taskId: String,
+    ): PendingIntent {
+        val intent =
+            Intent(this, DownloadService::class.java).apply {
+                this.action = action
+                putExtra(EXTRA_TASK_ID, taskId)
+            }
         return PendingIntent.getService(
             this,
             (action + taskId).hashCode(),
@@ -244,7 +287,6 @@ class DownloadService : Service() {
     companion object {
         private const val CHANNEL_DOWNLOADS = "downloads"
         private const val GROUP_KEY = "com.grabbit.downloads"
-        private const val FOREGROUND_ID = 1000
         private const val EXTRA_TASK_ID = "task_id"
         private const val ACTION_PAUSE = "com.grabbit.action.PAUSE"
         private const val ACTION_RESUME = "com.grabbit.action.RESUME"
@@ -252,26 +294,32 @@ class DownloadService : Service() {
 
         fun start(context: Context) {
             val intent = Intent(context, DownloadService::class.java)
-            runCatching { ContextCompat.startForegroundService(context, intent) }
+            try {
+                ContextCompat.startForegroundService(context, intent)
+            } catch (e: IllegalStateException) {
+                AppLog.e(TAG, "could not start the download service in the background", e)
+            }
         }
 
         fun createChannels(context: Context) {
             val manager = context.getSystemService(NotificationManager::class.java) ?: return
-            val downloads = NotificationChannel(
-                CHANNEL_DOWNLOADS,
-                context.getString(R.string.notif_channel_downloads),
-                NotificationManager.IMPORTANCE_LOW,
-            ).apply {
-                description = context.getString(R.string.notif_channel_downloads_desc)
-                setShowBadge(false)
-            }
-            val updates = NotificationChannel(
-                CHANNEL_UPDATES,
-                context.getString(R.string.notif_channel_updates),
-                NotificationManager.IMPORTANCE_DEFAULT,
-            ).apply {
-                description = context.getString(R.string.notif_channel_updates_desc)
-            }
+            val downloads =
+                NotificationChannel(
+                    CHANNEL_DOWNLOADS,
+                    context.getString(R.string.notif_channel_downloads),
+                    NotificationManager.IMPORTANCE_LOW,
+                ).apply {
+                    description = context.getString(R.string.notif_channel_downloads_desc)
+                    setShowBadge(false)
+                }
+            val updates =
+                NotificationChannel(
+                    CHANNEL_UPDATES,
+                    context.getString(R.string.notif_channel_updates),
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                ).apply {
+                    description = context.getString(R.string.notif_channel_updates_desc)
+                }
             manager.createNotificationChannels(listOf(downloads, updates))
         }
 

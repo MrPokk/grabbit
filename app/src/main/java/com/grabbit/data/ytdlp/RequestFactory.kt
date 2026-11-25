@@ -1,6 +1,11 @@
 package com.grabbit.data.ytdlp
 
+import com.grabbit.core.Defaults
+import com.grabbit.core.Languages
+import com.grabbit.core.Limits
 import com.grabbit.core.Links
+import com.grabbit.core.Timing
+import com.grabbit.core.YtDlpArgs
 import com.grabbit.data.download.DownloadOptions
 import com.grabbit.data.download.MediaType
 import com.yausername.youtubedl_android.YoutubeDLRequest
@@ -19,37 +24,37 @@ data class DownloadSpec(
     val markerFile: File,
 )
 
+/** Builds yt-dlp requests; option order matters for some multi-argument flags. */
 object RequestFactory {
-
-    const val MAX_PLAYLIST_ITEMS = 200
-    const val MIX_PLAYLIST_END = 50
-
     /**
      * Metadata request used by [com.grabbit.data.ytdlp.YtDlpEngine.fetch].
      *
      * YouTube Mix/radio URLs (`list=RD…`): by default they are fetched as
      * the single video (`--no-playlist`). With [loadMixAsPlaylist] they are
-     * returned as a bounded playlist (`--playlist-end`, [MIX_PLAYLIST_END]).
+     * returned as a bounded playlist (`--playlist-end`, [Limits.MIX_PLAYLIST_END]).
      */
-    fun buildFetchRequest(url: String, loadMixAsPlaylist: Boolean): YoutubeDLRequest {
-        return YoutubeDLRequest(url).apply {
+    fun buildFetchRequest(
+        url: String,
+        loadMixAsPlaylist: Boolean,
+    ): YoutubeDLRequest =
+        YoutubeDLRequest(url).apply {
             addOption("--dump-single-json")
             addOption("--flat-playlist")
-            addOption("--playlist-end", MAX_PLAYLIST_ITEMS)
+            addOption("--playlist-end", Limits.MAX_PLAYLIST_ITEMS)
             addOption("--no-warnings")
             addOption("--ignore-config")
-            addOption("--socket-timeout", 20)
-            addOption("--extractor-retries", 2)
+            addOption("--socket-timeout", Timing.FETCH_SOCKET_TIMEOUT_SECONDS)
+            addOption("--extractor-retries", YtDlpArgs.FETCH_EXTRACTOR_RETRIES)
             if (Links.isRadioPlaylist(url)) {
                 if (!loadMixAsPlaylist) {
                     addOption("--no-playlist")
                 } else {
-                    addOption("--playlist-end", MIX_PLAYLIST_END)
+                    addOption("--playlist-end", Limits.MIX_PLAYLIST_END)
                 }
             }
         }
-    }
 
+    /** Builds the download request for [spec], including conversion and cookies options. */
     fun build(spec: DownloadSpec): YoutubeDLRequest {
         val options = spec.options
         val request = YoutubeDLRequest(spec.url)
@@ -60,9 +65,9 @@ object RequestFactory {
         request.addOption("--no-simulate")
         request.addOption("--continue")
         request.addOption("--no-mtime")
-        request.addOption("--retries", 5)
-        request.addOption("--concurrent-fragments", 4)
-        request.addOption("--socket-timeout", 30)
+        request.addOption("--retries", YtDlpArgs.DOWNLOAD_RETRIES)
+        request.addOption("--concurrent-fragments", YtDlpArgs.CONCURRENT_FRAGMENTS)
+        request.addOption("--socket-timeout", Timing.DOWNLOAD_SOCKET_TIMEOUT_SECONDS)
 
         // --print-to-file takes TEMPLATE and FILE. They must be consecutive
         // arguments: two separate addOption calls make yt-dlp read the second
@@ -86,7 +91,7 @@ object RequestFactory {
             // 0 is yt-dlp's "best" quality; explicit bitrates are kept for lower presets.
             request.addOption(
                 "--audio-quality",
-                if (options.audioBitrate >= 320) "0" else "${options.audioBitrate}K",
+                if (options.audioBitrate >= Defaults.MAX_AUDIO_BITRATE_KBPS) "0" else "${options.audioBitrate}K",
             )
         } else {
             request.addOption("-f", formatSelector(options))
@@ -104,7 +109,7 @@ object RequestFactory {
         if (options.subtitles) {
             request.addOption("--write-subs")
             request.addOption("--embed-subs")
-            request.addOption("--sub-langs", "en.*,ru.*")
+            request.addOption("--sub-langs", Languages.SUPPORTED.joinToString(",") { "$it.*" })
         }
         if (options.sponsorBlock) {
             request.addOption("--sponsorblock-remove", "sponsor,selfpromo")
@@ -116,19 +121,25 @@ object RequestFactory {
         return request
     }
 
-    fun outputTemplate(template: String, playlistIndex: Int? = null): String {
-        val cleaned = template
-            .replace("/", "-")
-            .replace("\\", "-")
-            .ifBlank { "%(title)s" }
+    /** Sanitizes the user template, ensures an extension and prefixes a playlist index if set. */
+    fun outputTemplate(
+        template: String,
+        playlistIndex: Int? = null,
+    ): String {
+        val cleaned =
+            template
+                .replace("/", "-")
+                .replace("\\", "-")
+                .ifBlank { "%(title)s" }
         val withExt = if (cleaned.contains("%(ext)s")) cleaned else "$cleaned.%(ext)s"
         return if (playlistIndex != null) {
-            "${playlistIndex.toString().padStart(2, '0')} - $withExt"
+            "${playlistIndex.toString().padStart(YtDlpArgs.PLAYLIST_INDEX_PAD, '0')} - $withExt"
         } else {
             withExt
         }
     }
 
+    /** yt-dlp format selector for [options], preferring matching containers and heights. */
     fun formatSelector(options: DownloadOptions): String {
         if (options.mediaType == MediaType.AUDIO) return "ba/b"
         val limit = if (options.maxHeight > 0) "[height<=${options.maxHeight}]" else ""

@@ -33,20 +33,13 @@ import com.grabbit.ui.queue.QueueScreen
 import com.grabbit.ui.settings.SettingsScreen
 import kotlinx.coroutines.flow.StateFlow
 
-object Routes {
-    const val DOWNLOAD = "download"
-    const val QUEUE = "queue"
-    const val HISTORY = "history"
-    const val SETTINGS = "settings"
-    const val CONVERT = "convert"
-}
-
 private data class Destination(
     val route: String,
     @StringRes val label: Int,
     val icon: ImageVector,
 )
 
+/** Root navigation host with the bottom bar for the main destinations. */
 @Composable
 fun AppRoot(
     incomingLink: StateFlow<String?>,
@@ -57,14 +50,15 @@ fun AppRoot(
     val currentRoute = backStackEntry?.destination?.route ?: Routes.DOWNLOAD
     val link by incomingLink.collectAsStateWithLifecycle()
 
-    val destinations = remember {
-        listOf(
-            Destination(Routes.DOWNLOAD, R.string.nav_download, Icons.Rounded.Download),
-            Destination(Routes.QUEUE, R.string.nav_queue, Icons.Rounded.Downloading),
-            Destination(Routes.HISTORY, R.string.nav_history, Icons.Rounded.History),
-            Destination(Routes.SETTINGS, R.string.nav_settings, Icons.Rounded.Settings),
-        )
-    }
+    val destinations =
+        remember {
+            listOf(
+                Destination(Routes.DOWNLOAD, R.string.nav_download, Icons.Rounded.Download),
+                Destination(Routes.QUEUE, R.string.nav_queue, Icons.Rounded.Downloading),
+                Destination(Routes.HISTORY, R.string.nav_history, Icons.Rounded.History),
+                Destination(Routes.SETTINGS, R.string.nav_settings, Icons.Rounded.Settings),
+            )
+        }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),

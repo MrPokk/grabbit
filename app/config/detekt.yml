@@ -1,0 +1,82 @@
+build:
+  maxIssues: 0
+
+config:
+  validation: true
+
+comments:
+  active: true
+  excludes: &allowedExclusions
+    - '**/Dimens.kt'
+    - '**/Config.kt'
+    - '**/ui/theme/**'
+    - '**/test/**'
+    - '**/androidTest/**'
+
+complexity:
+  active: true
+  excludes: *allowedExclusions
+  ComplexCondition:
+    threshold: 5
+  CyclomaticComplexMethod:
+    threshold: 20
+  LongMethod:
+    threshold: 160
+  LongParameterList:
+    functionThreshold: 8
+    ignoreDefaultParameters: true
+  TooManyFunctions:
+    thresholdInFiles: 25
+    thresholdInClasses: 25
+    thresholdInInterfaces: 25
+    thresholdInObjects: 25
+    thresholdInEnums: 25
+
+coroutines:
+  active: true
+  excludes: *allowedExclusions
+
+empty-blocks:
+  active: true
+  excludes: *allowedExclusions
+
+exceptions:
+  active: true
+  excludes: *allowedExclusions
+  TooGenericExceptionCaught:
+    active: true
+    excludes: *allowedExclusions
+    exceptionNames:
+      - 'Throwable'
+
+naming:
+  active: true
+  excludes: *allowedExclusions
+  FunctionNaming:
+    ignoreAnnotated:
+      - 'Composable'
+
+performance:
+  active: true
+  excludes: *allowedExclusions
+
+potential-bugs:
+  active: true
+  excludes: *allowedExclusions
+
+style:
+  active: true
+  excludes: *allowedExclusions
+  LoopWithTooManyJumpStatements:
+    maxJumpCount: 2
+  ReturnCount:
+    max: 5
+  ThrowsCount:
+    max: 8
+  MagicNumber:
+    active: true
+    excludes: *allowedExclusions
+    ignoreNumbers:
+      - '-1'
+      - '0'
+      - '1'

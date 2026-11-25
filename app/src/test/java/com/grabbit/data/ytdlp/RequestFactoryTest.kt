@@ -8,8 +8,10 @@ import org.junit.Test
 import java.io.File
 
 class RequestFactoryTest {
-
-    private fun spec(options: DownloadOptions, index: Int? = null) = DownloadSpec(
+    private fun spec(
+        options: DownloadOptions,
+        index: Int? = null,
+    ) = DownloadSpec(
         taskId = "task",
         url = "https://youtu.be/abc",
         playlistIndex = index,
@@ -23,9 +25,10 @@ class RequestFactoryTest {
 
     @Test
     fun mp4SelectorPrefersMp4StreamsAndHeightLimit() {
-        val selector = RequestFactory.formatSelector(
-            DownloadOptions(mediaType = MediaType.VIDEO, maxHeight = 720, container = "mp4"),
-        )
+        val selector =
+            RequestFactory.formatSelector(
+                DownloadOptions(mediaType = MediaType.VIDEO, maxHeight = 720, container = "mp4"),
+            )
         assertTrue(selector.contains("height<=720"))
         assertTrue(selector.contains("[ext=mp4]"))
         assertTrue(selector.contains("ba[ext=m4a]"))
@@ -33,9 +36,10 @@ class RequestFactoryTest {
 
     @Test
     fun audioSelectorFallsBackToBest() {
-        val selector = RequestFactory.formatSelector(
-            DownloadOptions(mediaType = MediaType.AUDIO, audioFormat = "mp3"),
-        )
+        val selector =
+            RequestFactory.formatSelector(
+                DownloadOptions(mediaType = MediaType.AUDIO, audioFormat = "mp3"),
+            )
         assertEquals("ba/b", selector)
     }
 
@@ -56,9 +60,10 @@ class RequestFactoryTest {
 
     @Test
     fun commandContainsAudioConversionFlags() {
-        val request = RequestFactory.build(
-            spec(DownloadOptions(mediaType = MediaType.AUDIO, audioFormat = "mp3", audioBitrate = 320)),
-        )
+        val request =
+            RequestFactory.build(
+                spec(DownloadOptions(mediaType = MediaType.AUDIO, audioFormat = "mp3", audioBitrate = 320)),
+            )
         val command = request.buildCommand()
         assertTrue(command.contains("-x"))
         assertTrue(command.contains("mp3"))
@@ -71,9 +76,11 @@ class RequestFactoryTest {
         assertTrue(command.contains("--convert-thumbnails"))
         assertTrue(command.contains("jpg"))
 
-        val lower = RequestFactory.build(
-            spec(DownloadOptions(mediaType = MediaType.AUDIO, audioFormat = "mp3", audioBitrate = 192)),
-        ).buildCommand()
+        val lower =
+            RequestFactory
+                .build(
+                    spec(DownloadOptions(mediaType = MediaType.AUDIO, audioFormat = "mp3", audioBitrate = 192)),
+                ).buildCommand()
         assertTrue(lower.contains("192K"))
     }
 
@@ -93,17 +100,21 @@ class RequestFactoryTest {
 
     @Test
     fun fetchRequestKeepsRadioDefaultSingle() {
-        val command = RequestFactory.buildFetchRequest(
-            "https://www.youtube.com/watch?v=abc&list=RDabc&start_radio=1",
-            false,
-        ).buildCommand()
+        val command =
+            RequestFactory
+                .buildFetchRequest(
+                    "https://www.youtube.com/watch?v=abc&list=RDabc&start_radio=1",
+                    false,
+                ).buildCommand()
         assertTrue(command.contains("--no-playlist"))
         assertTrue(command.contains("--playlist-end"))
 
-        val asMix = RequestFactory.buildFetchRequest(
-            "https://www.youtube.com/watch?v=abc&list=RDabc&start_radio=1",
-            true,
-        ).buildCommand()
+        val asMix =
+            RequestFactory
+                .buildFetchRequest(
+                    "https://www.youtube.com/watch?v=abc&list=RDabc&start_radio=1",
+                    true,
+                ).buildCommand()
         assertEquals(false, asMix.contains("--no-playlist"))
         assertTrue(asMix.any { it.contains("50") })
     }

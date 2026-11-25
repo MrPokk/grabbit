@@ -5,19 +5,18 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.launch
-import androidx.compose.ui.platform.LocalContext
 import com.grabbit.core.Languages
 import com.grabbit.core.Links
 import com.grabbit.data.settings.SettingsRepository
@@ -25,12 +24,13 @@ import com.grabbit.ui.AppRoot
 import com.grabbit.ui.AppViewModel
 import com.grabbit.ui.theme.GrabbitTheme
 import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
+/** Single-activity host: applies the stored locale, requests permissions and routes share intents. */
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
-
     @Inject
     lateinit var settingsRepository: SettingsRepository
 
@@ -39,8 +39,6 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        // Apply the stored language (or system default) before the first frame
-        // so the UI opens in the right locale.
         // Applying an empty locale list on every cold start makes AppCompat
         // recreate the Activity. Only a stored explicit language needs applying
         // here; switching to "system default" is handled in settings.
@@ -54,9 +52,10 @@ class MainActivity : AppCompatActivity() {
             val settings by appViewModel.settings.collectAsStateWithLifecycle()
             val context = LocalContext.current
 
-            val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-                contract = ActivityResultContracts.RequestPermission(),
-            ) { }
+            val permissionLauncher =
+                rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.RequestPermission(),
+                ) { /* the system permission state is read again on the next launch */ }
 
             LaunchedEffect(Unit) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
@@ -92,11 +91,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleIntent(intent: Intent?) {
-        val text = when (intent?.action) {
-            Intent.ACTION_SEND -> intent.getStringExtra(Intent.EXTRA_TEXT)
-            Intent.ACTION_VIEW -> intent.dataString
-            else -> null
-        }
+        val text =
+            when (intent?.action) {
+                Intent.ACTION_SEND -> intent.getStringExtra(Intent.EXTRA_TEXT)
+                Intent.ACTION_VIEW -> intent.dataString
+                else -> null
+            }
         val link = Links.extract(text) ?: return
         incomingLink.value = link
     }

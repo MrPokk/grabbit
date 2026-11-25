@@ -9,30 +9,25 @@ import javax.inject.Singleton
 
 /** UI-facing facade: mutates the queue and keeps the foreground service alive. */
 @Singleton
-class DownloadRepository @Inject constructor(
-    @ApplicationContext private val context: Context,
-    private val engine: DownloadEngine,
-) {
-    val tasks: StateFlow<List<DownloadTask>> = engine.tasks
+class DownloadRepository
+    @Inject
+    constructor(
+        @ApplicationContext private val context: Context,
+        private val engine: DownloadEngine,
+    ) {
+        /** Current queue contents. */
+        val tasks: StateFlow<List<DownloadTask>> = engine.tasks
 
-    fun enqueue(requests: List<DownloadRequest>): List<String> {
-        val ids = engine.enqueue(requests)
-        if (ids.isNotEmpty()) DownloadService.start(context)
-        return ids
+        /** Adds requests to the queue and starts the foreground service for them. */
+        fun enqueue(requests: List<DownloadRequest>): List<String> {
+            val ids = engine.enqueue(requests)
+            if (ids.isNotEmpty()) DownloadService.start(context)
+            return ids
+        }
+
+        /** Re-queues a task and restarts the foreground service. */
+        fun resume(id: String) {
+            engine.resume(id)
+            DownloadService.start(context)
+        }
     }
-
-    fun pause(id: String) = engine.pause(id)
-
-    fun resume(id: String) {
-        engine.resume(id)
-        DownloadService.start(context)
-    }
-
-    fun cancel(id: String) = engine.cancel(id)
-
-    fun remove(id: String) = engine.remove(id)
-
-    fun clearFinished() = engine.clearFinished()
-
-    fun retry(id: String) = resume(id)
-}

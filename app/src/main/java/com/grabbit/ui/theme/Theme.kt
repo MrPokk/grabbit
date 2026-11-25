@@ -19,20 +19,22 @@ fun GrabbitTheme(
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit,
 ) {
-    val darkTheme = when (themeMode) {
-        ThemeMode.SYSTEM -> isSystemInDarkTheme()
-        ThemeMode.LIGHT -> false
-        ThemeMode.DARK -> true
-    }
+    val darkTheme =
+        when (themeMode) {
+            ThemeMode.SYSTEM -> isSystemInDarkTheme()
+            ThemeMode.LIGHT -> false
+            ThemeMode.DARK -> true
+        }
 
     val context = LocalContext.current
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    val colorScheme =
+        when {
+            dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
+                if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
 
-        darkTheme -> DarkColors
-        else -> LightColors
-    }
+            darkTheme -> DarkColors
+            else -> LightColors
+        }
 
     val view = LocalView.current
     if (!view.isInEditMode) {
