@@ -14,12 +14,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.grabbit.core.UiValues
 import com.grabbit.ui.theme.Dimens
@@ -43,12 +45,14 @@ private const val GOO_COLOR_CHANNEL_MASK = 0x00FFFFFF
 private const val GOO_ALPHA_SHIFT = 24
 private const val GOO_BYTE_MAX = 255
 
-// AGSL port of the same fields used by the strip fallback: circle + pulled edge, summed with
-// a + e * (1 - a) and pushed through the alpha contrast in one pass.
+// AGSL port of the same fields used by the strip fallback: circle, flat edge and pulled edge,
+// summed with a + b * (1 - a) and pushed through the alpha contrast in one pass.
 private const val GOO_AGSL = """
 uniform float2 uCenter;
 uniform float uRadius;
 uniform float uHalo;
+uniform float uFlatY;
+uniform float uFlatHalo;
 uniform float uEdgeX;
 uniform float uEdgeDir;
 uniform float uSpread;
@@ -57,40 +61,52 @@ uniform half4 uColor;
 
 half4 main(float2 p) {
     float r = distance(p, uCenter);
-    float aCircle = clamp((uRadius + uHalo * 0.5 - r) / uHalo, 0.0, 1.0);
-    float dist = (p.x - uEdgeX) * uEdgeDir;
-    float dy = (p.y - uCenter.y) / uSpread;
-    float aEdge = 0.0;
-    if (abs(dy) < 1.0) {
-        float bell = 1.0 - dy * dy;
-        float t = uDepth * bell * bell;
-        float w = max(2.0 * t, uHalo);
-        aEdge = clamp(0.5 + (t - dist) / w, 0.0, 1.0);
+    float aCircle = 0.0;
+    if (uHalo > 0.0) {
+        aCircle = clamp((uRadius + uHalo * 0.5 - r) / uHalo, 0.0, 1.0);
+    } else if (r <= uRadius) {
+        aCircle = 1.0;
     }
-    float a = aCircle + aEdge * (1.0 - aCircle);
+    float aFlat = 0.0;
+    if (uFlatHalo > 0.0) {
+        aFlat = clamp(0.5 + (p.y - uFlatY) / uFlatHalo, 0.0, 1.0);
+    }
+    float aEdge = 0.0;
+    if (uSpread > 0.0) {
+        float dist = (p.x - uEdgeX) * uEdgeDir;
+        float dy = (p.y - uCenter.y) / uSpread;
+        if (abs(dy) < 1.0) {
+            float bell = 1.0 - dy * dy;
+            float t = uDepth * bell * bell;
+            float w = max(2.0 * t, uHalo);
+            aEdge = clamp(0.5 + (t - dist) / w, 0.0, 1.0);
+        }
+    }
+    float a = aCircle + aFlat * (1.0 - aCircle);
+    a = a + aEdge * (1.0 - a);
     float k = clamp(39.0 * a - 19.6, 0.0, 1.0);
     return half4(uColor.rgb * k, k);
 }
 """
 
-/** Everything the two fields need: circle, and the edge line the tongue is pulled from. */
+/** Everything the fields need: a circle, an optional flat horizontal edge and an optional pulled edge. */
 private data class GooField(
     val center: Offset,
     val radius: Float,
     val halo: Float,
-    val edgeX: Float,
-    val edgeDirection: Float,
-    val spread: Float,
-    val depth: Float,
+    val flatY: Float = 0f,
+    val flatHalo: Float = 0f,
+    val edgeX: Float = 0f,
+    val edgeDirection: Float = 0f,
+    val spread: Float = 0f,
+    val depth: Float = 0f,
 )
 
 /**
  * Docked blob: a soft circle field plus an edge field that is pulled toward the circle and
  * spreads along the screen edge. The two fields are summed and passed through an alpha contrast,
  * so the visible contour starts exactly on the circle's rim and the edge fades out tangentially
- * at both ends. API 33+ evaluates the fields in one AGSL shader; older versions draw the circle
- * gradient and one horizontal gradient strip per dp inside a single contrast-filtered layer.
- * Icon/progress must be drawn by the caller on top.
+ * at both ends. Icon/progress must be drawn by the caller on top.
  */
 @Composable
 internal fun GooeyEdgeBlob(
@@ -107,8 +123,59 @@ internal fun GooeyEdgeBlob(
     val gap = with(density) { Dimens.gooEdgeGap.toPx() }
     val stripStep = with(density) { GOO_STRIP_STEP_DP.dp.toPx() }
     val strength = reveal.coerceIn(0f, 1f)
-    val colorArgb = color.toArgb()
 
+    GooCanvas(color, stripStep, modifier) { center ->
+        val edgeDistance = radius + gap
+        GooField(
+            center = center,
+            radius = radius,
+            halo = halo * strength,
+            edgeX = if (edge == DockEdge.LEFT) center.x - edgeDistance else center.x + edgeDistance,
+            edgeDirection = if (edge == DockEdge.LEFT) 1f else -1f,
+            spread = spread * strength,
+            depth = depth * strength,
+        )
+    }
+}
+
+/**
+ * Bar-coloured circle merged with the bar's flat top edge. The caller sizes and positions
+ * the layer so the circle can protrude above the bar, exactly like the old cradle ring.
+ */
+@Composable
+internal fun GooeyCradleBlob(
+    circleRadius: Dp,
+    flatY: Dp,
+    color: Color,
+    modifier: Modifier = Modifier,
+) {
+    val density = LocalDensity.current
+    val radius = with(density) { circleRadius.toPx() }
+    val flatYPx = with(density) { flatY.toPx() }
+    val halo = with(density) { Dimens.gooTransitionRadius.toPx() }
+    val stripStep = with(density) { GOO_STRIP_STEP_DP.dp.toPx() }
+
+    GooCanvas(color, stripStep, modifier) { center ->
+        GooField(
+            center = center,
+            radius = radius,
+            halo = halo,
+            flatY = flatYPx,
+            flatHalo = halo,
+        )
+    }
+}
+
+@Composable
+private fun GooCanvas(
+    color: Color,
+    stripStep: Float,
+    modifier: Modifier,
+    center: (Size) -> Offset = { size ->
+        Offset(size.width * UiValues.MIDPOINT, size.height * UiValues.MIDPOINT)
+    },
+    field: (Offset) -> GooField,
+) {
     val agslShader =
         remember {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) createGooShader() else null
@@ -116,27 +183,11 @@ internal fun GooeyEdgeBlob(
     val agslPaint = remember { Paint(Paint.ANTI_ALIAS_FLAG) }
 
     Canvas(modifier) {
-        val center = Offset(size.width * UiValues.MIDPOINT, size.height * UiValues.MIDPOINT)
-        if (strength <= 0f) {
-            drawCircle(color = color, radius = radius, center = center)
-            return@Canvas
-        }
-        // The screen edge sits one circle radius (plus the gap) from the circle's centre.
-        val edgeDistance = radius + gap
-        val field =
-            GooField(
-                center = center,
-                radius = radius,
-                halo = halo * strength,
-                edgeX = if (edge == DockEdge.LEFT) center.x - edgeDistance else center.x + edgeDistance,
-                edgeDirection = if (edge == DockEdge.LEFT) 1f else -1f,
-                spread = spread * strength,
-                depth = depth * strength,
-            )
+        val gooField = field(center(size))
         if (agslShader != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            drawShader(agslShader, agslPaint, field, color)
+            drawShader(agslShader, agslPaint, gooField, color)
         } else {
-            drawStrips(field, stripStep, colorArgb)
+            drawStrips(gooField, stripStep, color.toArgb())
         }
     }
 }
@@ -154,6 +205,8 @@ private fun DrawScope.drawShader(
     shader.setFloatUniform("uCenter", field.center.x, field.center.y)
     shader.setFloatUniform("uRadius", field.radius)
     shader.setFloatUniform("uHalo", field.halo)
+    shader.setFloatUniform("uFlatY", field.flatY)
+    shader.setFloatUniform("uFlatHalo", field.flatHalo)
     shader.setFloatUniform("uEdgeX", field.edgeX)
     shader.setFloatUniform("uEdgeDir", field.edgeDirection)
     shader.setFloatUniform("uSpread", field.spread)
@@ -180,35 +233,63 @@ private fun DrawScope.drawStrips(
                 colorFilter = ColorMatrixColorFilter(gooContrastMatrix())
             }
         val layer = native.saveLayer(0f, 0f, size.width, size.height, layerPaint)
-        drawCircleField(native, field, colorArgb)
+        drawFlatField(native, field, colorArgb)
+        drawCircleField(native, field.center, field.radius, field.halo, colorArgb)
         drawEdgeStrips(native, field, step, colorArgb)
         native.restoreToCount(layer)
     }
 }
 
-private fun drawCircleField(
+private fun DrawScope.drawFlatField(
     native: android.graphics.Canvas,
     field: GooField,
     colorArgb: Int,
 ) {
-    val half = field.halo * GOO_HALF
-    val outer = field.radius + half
-    val core = (field.radius - half).coerceAtLeast(GOO_CLEAR_ALPHA)
+    if (field.flatHalo <= GOO_CLEAR_ALPHA) return
+    val top = field.flatY - field.flatHalo * GOO_HALF
+    val opaqueAt = field.flatY + field.flatHalo * GOO_HALF
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    paint.shader =
+        LinearGradient(
+            0f,
+            top,
+            0f,
+            opaqueAt,
+            intArrayOf(withAlpha(colorArgb, GOO_CLEAR_ALPHA), withAlpha(colorArgb, GOO_FULL_ALPHA)),
+            null,
+            Shader.TileMode.CLAMP,
+        )
+    native.drawRect(0f, top, size.width, opaqueAt, paint)
+    paint.shader = null
+    paint.color = colorArgb
+    native.drawRect(0f, opaqueAt, size.width, size.height, paint)
+}
+
+private fun drawCircleField(
+    native: android.graphics.Canvas,
+    center: Offset,
+    radius: Float,
+    halo: Float,
+    colorArgb: Int,
+) {
+    val half = halo * GOO_HALF
+    val outer = radius + half
+    val core = (radius - half).coerceAtLeast(GOO_CLEAR_ALPHA)
     val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     if (outer <= core) {
         paint.color = colorArgb
     } else {
         paint.shader =
             RadialGradient(
-                field.center.x,
-                field.center.y,
+                center.x,
+                center.y,
                 outer,
                 intArrayOf(colorArgb, colorArgb, withAlpha(colorArgb, GOO_CLEAR_ALPHA)),
                 floatArrayOf(GOO_CLEAR_ALPHA, core / outer, GOO_FULL_ALPHA),
                 Shader.TileMode.CLAMP,
             )
     }
-    native.drawCircle(field.center.x, field.center.y, outer, paint)
+    native.drawCircle(center.x, center.y, outer, paint)
 }
 
 private fun drawEdgeStrips(

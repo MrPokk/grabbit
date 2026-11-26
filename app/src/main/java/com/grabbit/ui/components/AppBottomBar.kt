@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -21,7 +22,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -38,10 +38,10 @@ import com.grabbit.ui.Routes
 import com.grabbit.ui.theme.Dimens
 
 private val FabOffset = -Dimens.sm
-private val CradleLift = Dimens.xxs
 private val FabSize = Dimens.iconLg + Dimens.sm
+private val FabCenterY = FabOffset + FabSize * UiValues.MIDPOINT
 
-// The cradle ring grows when Download is selected; the wider middle gap keeps both items clear of it.
+// The cradle blob grows when Download is selected; the wider middle gap keeps both items clear of it.
 private const val CENTER_GAP_WEIGHT = 2f
 
 @Composable
@@ -85,18 +85,13 @@ fun AppBottomBar(
             label = "downloadScale",
         )
     val barColor = MaterialTheme.colorScheme.surfaceContainer
-    val ringOffset by
-        animateDpAsState(
-            targetValue = FabOffset - CradleLift - if (downloadSelected) Dimens.xxs else 0.dp,
-            animationSpec = tween(Timing.NAV_ANIMATION_DURATION_MS),
-            label = "ringOffset",
-        )
-    val ringSize by
+    val cradleSize by
         animateDpAsState(
             targetValue = if (downloadSelected) FabSize + Dimens.sm * 2 else FabSize + Dimens.sm,
             animationSpec = tween(Timing.NAV_ANIMATION_DURATION_MS),
-            label = "ringSize",
+            label = "cradleSize",
         )
+    val cradleLayerSize = cradleSize + Dimens.gooTransitionRadius + Dimens.gooTransitionRadius
 
     Box(modifier.fillMaxWidth()) {
         Canvas(Modifier.matchParentSize()) { drawRect(color = barColor) }
@@ -123,17 +118,16 @@ fun AppBottomBar(
             )
             Spacer(Modifier.weight(1f))
         }
-        // Ring of the bar color behind the download button, centered on it.
-        Surface(
+        GooeyCradleBlob(
+            circleRadius = cradleSize * UiValues.MIDPOINT,
+            flatY = cradleLayerSize * UiValues.MIDPOINT - FabCenterY,
+            color = barColor,
             modifier =
                 Modifier
                     .align(Alignment.TopCenter)
-                    .offset(y = ringOffset)
-                    .size(ringSize),
-            shape = CircleShape,
-            color = barColor,
-        ) {
-        }
+                    .offset(y = FabCenterY - cradleLayerSize * UiValues.MIDPOINT)
+                    .requiredSize(cradleLayerSize),
+        )
         FloatingActionButton(
             onClick = { if (!downloadSelected) onNavigate(Routes.DOWNLOAD) },
             modifier =
