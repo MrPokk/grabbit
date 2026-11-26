@@ -62,6 +62,7 @@ import com.grabbit.ui.components.EmptyState
 import com.grabbit.ui.components.Thumbnail
 import com.grabbit.ui.components.openSavedFile
 import com.grabbit.ui.components.shareSavedFile
+import com.grabbit.ui.components.showSavedFileInFolder
 import com.grabbit.ui.theme.Dimens
 
 private val HistoryThumbnailWidth = 88.dp
@@ -140,6 +141,7 @@ fun HistoryScreen(viewModel: HistoryViewModel = hiltViewModel()) {
                     HistoryRow(
                         entity = entity,
                         onOpen = { openSavedFile(context, entity.uri, entity.mimeType) },
+                        onShowInFolder = { showSavedFileInFolder(context, entity.uri) },
                         onShare = {
                             shareSavedFile(context, entity.uri, entity.fileName, entity.mimeType)
                         },
@@ -172,6 +174,7 @@ fun HistoryScreen(viewModel: HistoryViewModel = hiltViewModel()) {
 private fun HistoryRow(
     entity: HistoryEntity,
     onOpen: () -> Unit,
+    onShowInFolder: () -> Unit,
     onShare: () -> Unit,
     onRedownload: () -> Unit,
     onRemove: () -> Unit,
@@ -249,6 +252,7 @@ private fun HistoryRow(
                 expanded = menuOpen,
                 onDismiss = { menuOpen = false },
                 onOpen = onOpen,
+                onShowInFolder = onShowInFolder,
                 onShare = onShare,
                 onRedownload = onRedownload,
                 onRemove = onRemove,

@@ -22,6 +22,7 @@
     <string name="action_save">Save</string>
     <string name="action_search">Search</string>
     <string name="action_share">Share</string>
+    <string name="action_show_in_folder">Show in folder</string>
     <string name="action_start_download">Start download</string>
     <string name="action_update_ytdlp">Update yt-dlp</string>
     <string name="app_name">Grabbit</string>
@@ -61,6 +62,7 @@
     <string name="error_drm">This video is DRM-protected and cannot be downloaded.</string>
     <string name="error_fetch_timeout">Getting video info took too long. Try again.</string>
     <string name="error_ffmpeg">Conversion failed. Try another format.</string>
+    <string name="error_file_location">Could not open the file location</string>
     <string name="error_format">That format is not available. Pick another quality.</string>
     <string name="error_geo">Blocked in your region.</string>
     <string name="error_invalid_url">That doesn\'t look like a valid link.</string>

@@ -22,6 +22,7 @@
     <string name="action_save">Сохранить</string>
     <string name="action_search">Найти</string>
     <string name="action_share">Поделиться</string>
+    <string name="action_show_in_folder">Показать в папке</string>
     <string name="action_start_download">Начать загрузку</string>
     <string name="action_update_ytdlp">Обновить yt-dlp</string>
     <string name="app_name">Grabbit</string>
@@ -63,6 +64,7 @@
     <string name="error_drm">Видео защищено DRM и не может быть скачано.</string>
     <string name="error_fetch_timeout">Не удалось получить информацию о видео за отведённое время. Повторите.</string>
     <string name="error_ffmpeg">Ошибка конвертации. Попробуйте другой формат.</string>
+    <string name="error_file_location">Не удалось открыть папку с файлом</string>
     <string name="error_format">Такого формата нет. Выберите другое качество.</string>
     <string name="error_geo">Заблокировано в вашем регионе.</string>
     <string name="error_invalid_url">Это не похоже на ссылку.</string>

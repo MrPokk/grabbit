@@ -42,6 +42,7 @@ import com.grabbit.ui.components.DeleteMode
 import com.grabbit.ui.components.EmptyState
 import com.grabbit.ui.components.openSavedFile
 import com.grabbit.ui.components.shareSavedFile
+import com.grabbit.ui.components.showSavedFileInFolder
 import com.grabbit.ui.theme.Dimens
 
 /** Queue screen with active downloads, task actions and quick access to settings. */
@@ -143,6 +144,9 @@ fun QueueScreen(
                                 onRemove = { viewModel.remove(task.id) },
                                 onOpen = {
                                     task.savedUri?.let { uri -> openSavedFile(context, uri, task.mimeType()) }
+                                },
+                                onShowInFolder = {
+                                    task.savedUri?.let { uri -> showSavedFileInFolder(context, uri) }
                                 },
                                 onShare = {
                                     task.savedUri?.let { uri ->
