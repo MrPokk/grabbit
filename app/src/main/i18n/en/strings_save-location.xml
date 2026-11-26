@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="save_location_title">Save location</string>
+    <string name="save_location_pick">Choose folder</string>
+    <string name="save_location_system">System folders (Music / Movies)</string>
+    <string name="save_location_custom">Custom folder</string>
+    <string name="save_location_clear">Use default</string>
+    <string name="file_name_label">File name</string>
+    <string name="file_name_hint">File name without extension</string>
+    <string name="file_name_empty">Empty — will use the template</string>
+    <string name="file_name_collision">A file with this name already exists</string>
+</resources>

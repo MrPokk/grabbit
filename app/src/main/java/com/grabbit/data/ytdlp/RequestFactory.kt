@@ -22,6 +22,10 @@ data class DownloadSpec(
     val cookiesPath: String?,
     val proxy: String?,
     val markerFile: File,
+    /** Per-download SAF folder URI, overriding the global save folder. `null` = use the default. */
+    val saveFolderUri: String? = null,
+    /** Custom file name without extension, or `null` to use the filename template. */
+    val fileName: String? = null,
 )
 
 /** Builds yt-dlp requests; option order matters for some multi-argument flags. */
@@ -85,7 +89,14 @@ object RequestFactory {
         )
 
         request.addOption("-P", spec.workDir.absolutePath)
-        request.addOption("-o", outputTemplate(spec.template, spec.playlistIndex))
+        request.addOption(
+            "-o",
+            outputTemplate(
+                template = spec.template,
+                playlistIndex = spec.playlistIndex,
+                fileName = spec.fileName,
+            ),
+        )
 
         // Items are downloaded from their own URLs. Dynamic mixes change their
         // contents between extraction and download, so playlist positions are
@@ -133,9 +144,12 @@ object RequestFactory {
     fun outputTemplate(
         template: String,
         playlistIndex: Int? = null,
+        fileName: String? = null,
     ): String {
+        // A custom file name (single video only) takes precedence over the template.
+        val base = fileName.takeIf { it?.isNotBlank() == true } ?: template
         val cleaned =
-            template
+            base
                 .replace("/", "-")
                 .replace("\\", "-")
                 .ifBlank { "%(title)s" }
