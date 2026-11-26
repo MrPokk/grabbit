@@ -63,3 +63,9 @@ Grabbit is an Android media downloader (Kotlin, Compose Material 3, Hilt, Room, 
 - [ ] For parallel work, review integrated commits, resolve conflicts and retain all unmerged work.
 
 Report changes, intentional omissions/reasons, waivers, build/check results and manual checks still needed. For parallel work, also report agents/tasks, branches/commits and integration conflicts.
+
+## 9. UI verification and adb
+- adb-based checks (taps, screenshots, UI dumps, `input`, `uiautomator`) are very slow. Use them only as a last resort or when the user explicitly asks.
+- To verify UI behavior (button presses, navigation, screen states), ask the user to check manually: say exactly what to tap/open and what result to expect.
+- Prefer static checks first: build, lint, ktlint/detekt, previews and code review.
+- List unverified UI behavior under "manual checks still needed" in the final report.

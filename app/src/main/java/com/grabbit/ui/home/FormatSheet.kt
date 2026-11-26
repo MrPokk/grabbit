@@ -1,9 +1,10 @@
 package com.grabbit.ui.home
 
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.Environment
+import android.provider.DocumentsContract
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -40,7 +41,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.documentfile.provider.DocumentFile
 import com.grabbit.R
 import com.grabbit.core.AppLog
 import com.grabbit.core.UiValues
@@ -53,6 +53,8 @@ import com.grabbit.data.ytdlp.availableHeights
 import com.grabbit.ui.theme.Dimens
 
 private const val TAG = "FormatSheet"
+
+private const val PRIMARY_STORAGE_VOLUME = "primary"
 
 /** Bottom sheet with format, quality and extra options for the current media. */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -74,8 +76,8 @@ fun FormatSheet(
     var mediaType by remember { mutableStateOf(initial.mediaType) }
     var videoHeight by remember { mutableStateOf(initial.maxHeight) }
     var saveFolderUri by remember { mutableStateOf<String?>(defaults.customFolderUri) }
-    var saveFolderName by remember {
-        mutableStateOf(defaults.customFolderUri?.let { folderDisplayName(context, Uri.parse(it)) })
+    var saveFolderPath by remember {
+        mutableStateOf(defaults.customFolderUri?.let { folderFullPath(Uri.parse(it)) })
     }
     var fileName by remember { mutableStateOf(if (!isPlaylist) media.title else "") }
 
@@ -95,7 +97,7 @@ fun FormatSheet(
                         AppLog.e(TAG, "could not persist the folder permission", e)
                     }
                 }
-                saveFolderName = folderDisplayName(context, pickedUri)
+                saveFolderPath = folderFullPath(pickedUri)
             }
         }
 
@@ -199,13 +201,13 @@ fun FormatSheet(
             // ----- Advanced: save location -----
             HorizontalDivider(Modifier.padding(vertical = Dimens.xxs))
             Label(stringResource(R.string.save_location_title))
-            val folderName = saveFolderName
             val folderDescription =
-                when {
-                    folderName != null -> folderName
-                    saveFolderUri != null -> stringResource(R.string.save_location_custom)
-                    else -> stringResource(R.string.save_location_system)
-                }
+                saveFolderPath
+                    ?: if (saveFolderUri != null) {
+                        stringResource(R.string.save_location_custom)
+                    } else {
+                        stringResource(R.string.save_location_system)
+                    }
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
                     text = folderDescription,
@@ -218,7 +220,7 @@ fun FormatSheet(
                     if (saveFolderUri != null) {
                         TextButton(onClick = {
                             saveFolderUri = null
-                            saveFolderName = null
+                            saveFolderPath = null
                         }) {
                             Text(stringResource(R.string.save_location_clear))
                         }
@@ -265,13 +267,28 @@ fun FormatSheet(
     }
 }
 
-private fun folderDisplayName(
-    context: Context,
-    uri: Uri?,
-): String? =
-    uri?.let { treeUri ->
-        DocumentFile.fromTreeUri(context, treeUri)?.name
-    }
+@Suppress("DEPRECATION") // SAF tree paths still need the external storage root for display
+private fun folderFullPath(uri: Uri?): String? {
+    val documentId =
+        uri?.let {
+            try {
+                DocumentsContract.getTreeDocumentId(it)
+            } catch (e: IllegalArgumentException) {
+                AppLog.e(TAG, "not a tree URI: $it", e)
+                return null
+            }
+        } ?: return null
+    val volume = documentId.substringBefore(':')
+    val relative = documentId.substringAfter(':').trim('/')
+    if (relative.isEmpty()) return null
+    val root =
+        if (volume == PRIMARY_STORAGE_VOLUME) {
+            Environment.getExternalStorageDirectory().absolutePath
+        } else {
+            "/storage/$volume"
+        }
+    return "$root/$relative"
+}
 
 @Composable
 private fun Label(text: String) {
