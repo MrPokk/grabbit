@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -42,7 +43,11 @@ fun HomeScreen(
         }
     }
 
-    Column(Modifier.fillMaxSize()) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .imePadding(),
+    ) {
         TopAppBar(
             title = { Text(stringResource(R.string.home_title)) },
             scrollBehavior = scrollBehavior,
@@ -65,7 +70,6 @@ fun HomeScreen(
             homeMediaContent(state, settings, viewModel)
         }
 
-        // adjustResize already shrinks the window; imePadding here would apply the IME inset twice.
         UrlCard(
             url = state.url,
             loading = state.loading,
