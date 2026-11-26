@@ -2,8 +2,7 @@ package com.grabbit.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeOut
+import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
@@ -25,7 +24,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.grabbit.core.Timing
 import com.grabbit.ui.components.AppBottomBar
 import com.grabbit.ui.components.FloatingDownloadOverlay
 import com.grabbit.ui.components.rememberFloatingDownloadState
@@ -52,18 +50,14 @@ fun AppRoot(
     val link by incomingLink.collectAsStateWithLifecycle()
     val floatingState = rememberFloatingDownloadState()
     val imeBottom = WindowInsets.ime.asPaddingValues().calculateBottomPadding()
-    // Hide the floating download circle when the queue screen is open; show it again
-    // when returning to the download or history screen (panel closed).
-    val showWidget =
-        (currentRoute == Routes.DOWNLOAD || currentRoute == Routes.HISTORY) &&
-            queueSummary.count > 0
-    val widgetAnimationSpec = tween<Float>(Timing.FAB_ANIMATION_DURATION_MS)
+    // Hide the floating download circle immediately when the queue screen opens;
+    // show it again when returning to download/history (panel closed).
+    val showWidget = currentRoute != Routes.QUEUE && queueSummary.count > 0
 
     LaunchedEffect(currentRoute) {
         if (currentRoute != Routes.DOWNLOAD && currentRoute != Routes.HISTORY) {
             floatingState.collapse()
         }
-        // Returning to download/history: widget is shown via showWidget, stays collapsed (edge circle).
     }
 
     LaunchedEffect(queueSummary.count) {
@@ -129,7 +123,7 @@ fun AppRoot(
             AnimatedVisibility(
                 visible = showWidget,
                 enter = EnterTransition.None,
-                exit = fadeOut(animationSpec = widgetAnimationSpec),
+                exit = ExitTransition.None,
             ) {
                 FloatingDownloadOverlay(
                     summary = queueSummary,
