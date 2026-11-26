@@ -4,7 +4,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class FileNameTest {
-
     @Test
     fun `sanitize replaces illegal characters`() {
         assertEquals("my_file", FileName.sanitize("my/file"))

@@ -5,10 +5,13 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.io.File
 import java.util.Properties
 
-private val localProps = Properties().apply {
-    rootProject.file("local.properties").inputStream().use { load(it) }
-}
-private val storeFile = localProps["storeFile"]?.toString()
+private val localProps =
+    Properties().apply {
+        rootProject.file("local.properties").inputStream().use { load(it) }
+    }
+private val storeFile =
+    localProps["storeFile"]
+        ?.toString()
 private val storePassword = localProps["storePassword"]?.toString()
 private val keyAlias = localProps["keyAlias"]?.toString()
 private val keyPassword = localProps["keyPassword"]?.toString()
@@ -150,13 +153,16 @@ android {
             val kp = keyPassword
             if (sf != null && sp != null && ka != null && kp != null) {
                 // Keystore is in project root, not app module
-                val storeFilePath = File(rootProject.projectDir, sf).absolutePath
-                signingConfig = signingConfigs.create("release") {
-                    storeFile = File(storeFilePath)
-                    storePassword = sp
-                    keyAlias = ka
-                    keyPassword = kp
-                }
+                val storeFilePath =
+                    File(rootProject.projectDir, sf)
+                        .absolutePath
+                signingConfig =
+                    signingConfigs.create("release") {
+                        storeFile = File(storeFilePath)
+                        storePassword = sp
+                        keyAlias = ka
+                        keyPassword = kp
+                    }
             }
         }
         debug {

@@ -13,7 +13,6 @@ object Timing {
     val UPDATE_CHECK_INTERVAL: Duration = 1.days
     val FLOW_SUBSCRIPTION_GRACE: Duration = 5.seconds
     val SEARCH_DEBOUNCE: Duration = 150.milliseconds
-    const val FAB_ANIMATION_DURATION_MS = 200
     const val NAV_ANIMATION_DURATION_MS = 250
     const val FLOATING_SNAP_DURATION_MS = 220
     const val QUEUE_PANEL_ANIMATION_DURATION_MS = 220
@@ -61,7 +60,6 @@ object Limits {
 /** File-copy and file-name limits. */
 object Storage {
     const val COPY_BUFFER_BYTES = 64 * 1024
-    const val MAX_UNIQUE_FILE_INDEX = 1000
     const val COOKIES_FILE_NAME = "cookies.txt"
 }
 
@@ -118,7 +116,6 @@ object UiValues {
     const val NAV_DOWNLOAD_UNSELECTED_SCALE = 0.92f
     const val FLOATING_INITIAL_VERTICAL_FRACTION = 0.35f
     const val FLOATING_EDGE_SNAP_FRACTION = MIDPOINT
-    const val FLOATING_DOCK_OVERLAP_FRACTION = 0.25f
     const val FLOATING_SCRIM_ALPHA = 0.32f
 
     val BITRATES =

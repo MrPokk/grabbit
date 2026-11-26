@@ -8,5 +8,4 @@
     <string name="file_name_label">File name</string>
     <string name="file_name_hint">File name without extension</string>
     <string name="file_name_empty">Empty — will use the template</string>
-    <string name="file_name_collision">A file with this name already exists</string>
 </resources>

@@ -12,20 +12,26 @@ import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.grabbit.core.AppLog
-import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import java.util.concurrent.TimeUnit
 
 /** In-memory LRU cache for fetch results. */
-class FetchMemoryCache(private val maxSize: Int = 20) {
-    private val cache = object : LruCache<String, FetchedMedia>(maxSize) {
-        override fun sizeOf(key: String, value: FetchedMedia): Int = 1
-    }
+class FetchMemoryCache(
+    private val maxSize: Int = 20,
+) {
+    private val cache =
+        object : LruCache<String, FetchedMedia>(maxSize) {
+            override fun sizeOf(
+                key: String,
+                value: FetchedMedia,
+            ): Int = 1
+        }
 
     fun get(key: String): FetchedMedia? = cache.get(key)
 
-    fun put(key: String, value: FetchedMedia) {
+    fun put(
+        key: String,
+        value: FetchedMedia,
+    ) {
         cache.put(key, value)
     }
 
@@ -52,7 +58,10 @@ interface FetchCacheDao {
     suspend fun get(normalizedUrl: String): FetchCacheEntity?
 
     @Query("SELECT * FROM fetch_cache WHERE normalizedUrl = :normalizedUrl AND timestamp > :minTimestamp")
-    suspend fun getFresh(normalizedUrl: String, minTimestamp: Long): FetchCacheEntity?
+    suspend fun getFresh(
+        normalizedUrl: String,
+        minTimestamp: Long,
+    ): FetchCacheEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun put(entity: FetchCacheEntity)
@@ -69,25 +78,30 @@ abstract class FetchCacheDatabase : RoomDatabase() {
     abstract fun fetchCacheDao(): FetchCacheDao
 
     companion object {
-        @Volatile private var INSTANCE: FetchCacheDatabase? = null
+        @Volatile private var instance: FetchCacheDatabase? = null
 
-        fun getInstance(context: Context): FetchCacheDatabase {
-            return INSTANCE ?: synchronized(this) {
-                val instance = Room.databaseBuilder(
-                    context.applicationContext,
-                    FetchCacheDatabase::class.java,
-                    "fetch_cache.db",
-                ).build()
-                INSTANCE = instance
-                instance
+        fun getInstance(context: Context): FetchCacheDatabase =
+            instance ?: synchronized(this) {
+                val created =
+                    Room
+                        .databaseBuilder(
+                            context.applicationContext,
+                            FetchCacheDatabase::class.java,
+                            "fetch_cache.db",
+                        ).build()
+                instance = created
+                created
             }
-        }
     }
 }
 
 /** Serialization helper for FetchedMedia. */
 object FetchCacheSerializer {
-    private val json = Json { ignoreUnknownKeys = true; isLenient = true }
+    private val json =
+        Json {
+            ignoreUnknownKeys = true
+            isLenient = true
+        }
 
     fun toJson(media: FetchedMedia): String = json.encodeToString(media)
 

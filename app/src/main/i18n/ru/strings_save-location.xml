@@ -8,5 +8,4 @@
     <string name="file_name_label">Имя файла</string>
     <string name="file_name_hint">Без расширения</string>
     <string name="file_name_empty">Пусто — шаблон</string>
-    <string name="file_name_collision">Имя уже занято</string>
 </resources>

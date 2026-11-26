@@ -9,7 +9,6 @@ import com.grabbit.core.AppError
 import com.grabbit.core.AppLog
 import com.grabbit.core.Links
 import com.grabbit.core.MediaPlatform
-import com.grabbit.core.Timing
 import com.grabbit.core.stateInUi
 import com.grabbit.core.suspendRunCatching
 import com.grabbit.data.download.DownloadOptions
@@ -40,6 +39,7 @@ import java.util.UUID
 import javax.inject.Inject
 
 private const val TAG = "HomeViewModel"
+
 // Debounce delay before auto-fetching after URL change (~300ms)
 private const val FETCH_DEBOUNCE_MS = 300L
 
@@ -109,13 +109,14 @@ class HomeViewModel
         private fun scheduleAutoFetch(rawUrl: String) {
             val extracted = Links.extract(rawUrl)?.let(Links::normalize) ?: return
             autoFetchJob?.cancel()
-            autoFetchJob = viewModelScope.launch {
-                delay(FETCH_DEBOUNCE_MS)
-                // Re-check URL hasn't changed during debounce
-                if (Links.normalize(_state.value.url) == extracted && _state.value.selectedPlatform == null) {
-                    fetchUrl(extracted)
+            autoFetchJob =
+                viewModelScope.launch {
+                    delay(FETCH_DEBOUNCE_MS)
+                    // Re-check URL hasn't changed during debounce
+                    if (Links.normalize(_state.value.url) == extracted && _state.value.selectedPlatform == null) {
+                        fetchUrl(extracted)
+                    }
                 }
-            }
         }
 
         /** Handles a link sent by MainActivity and immediately fetches its metadata. */

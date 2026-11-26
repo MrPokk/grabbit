@@ -22,6 +22,7 @@ object FileName {
      */
     fun sanitize(name: String): String =
         name.replace(FILE_NAME_ILLEGAL_CHARS, "_").trim().ifBlank { FILE_NAME_FALLBACK }
+
     /**
      * Returns [candidate] if it is not already taken, otherwise appends
      * " (1)", " (2)", … before the extension until a free name is found.

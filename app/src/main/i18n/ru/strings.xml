@@ -64,7 +64,6 @@
     <string name="error_drm">Видео защищено DRM и не может быть скачано.</string>
     <string name="error_fetch_timeout">Не удалось получить информацию о видео за отведённое время. Повторите.</string>
     <string name="error_ffmpeg">Ошибка конвертации. Попробуйте другой формат.</string>
-    <string name="error_file_location">Не удалось открыть папку с файлом</string>
     <string name="error_format">Такого формата нет. Выберите другое качество.</string>
     <string name="error_geo">Заблокировано в вашем регионе.</string>
     <string name="error_invalid_url">Это не похоже на ссылку.</string>
@@ -158,8 +157,6 @@
     <string name="queue_file_info">%1$s · %2$s</string>
     <string name="queue_progress_percent">%1$d%%</string>
     <string name="queue_title">Очередь</string>
-    <string name="search_empty_body">Попробуйте другой запрос.</string>
-    <string name="search_empty_title">Ничего не найдено</string>
     <string name="search_hint">Поиск в %1$s</string>
     <string name="search_prompt_body">Введите запрос, чтобы найти видео в %1$s.</string>
     <string name="search_prompt_title">Поиск в %1$s</string>
