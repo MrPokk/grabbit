@@ -8,7 +8,6 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.shape.ZeroCornerSize
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -80,16 +79,16 @@ fun DownloadQueuePanel(
                         Modifier
                             .align(if (edge == DockEdge.LEFT) Alignment.CenterStart else Alignment.CenterEnd)
                             .fillMaxSize()
-                            .padding(start = Dimens.md, top = Dimens.md, end = Dimens.md),
-                    shape =
-                        MaterialTheme.shapes.large.copy(
-                            bottomStart = ZeroCornerSize,
-                            bottomEnd = ZeroCornerSize,
-                        ),
-                    // Same colour as AppBottomBar's barColor (surfaceContainer); any tonal shade
-                    // would leave a seam around the goo ring.
-                    color = MaterialTheme.colorScheme.surfaceContainer,
-                    tonalElevation = 0.dp,
+                            .padding(
+                                start = Dimens.xl,
+                                top = Dimens.xl,
+                                end = Dimens.xl,
+                                bottom = Dimens.xl * 2,
+                            ),
+                    shape = MaterialTheme.shapes.large,
+                    // Card-window: doesn't reach the bottom edge so the bar stays visible underneath.
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    tonalElevation = Dimens.xxs,
                     shadowElevation = Dimens.sm,
                 ) {
                     QueueScreen(
