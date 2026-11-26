@@ -50,7 +50,6 @@ data class DownloadOptions(
     val container: String = Defaults.VIDEO_CONTAINER,
     val audioFormat: String = Defaults.AUDIO_FORMAT,
     val audioBitrate: Int = Defaults.AUDIO_BITRATE_KBPS,
-    val convertTo: ConvertFormat? = null,
     val embedThumbnail: Boolean = true,
     val embedMetadata: Boolean = true,
     val subtitles: Boolean = false,
@@ -88,7 +87,6 @@ enum class TaskStatus {
     QUEUED,
     PREPARING,
     DOWNLOADING,
-    CONVERTING,
     SAVING,
     COMPLETED,
     PAUSED,
@@ -102,7 +100,6 @@ enum class TaskStatus {
             this == QUEUED ||
                 this == PREPARING ||
                 this == DOWNLOADING ||
-                this == CONVERTING ||
                 this == SAVING
 
     /** Whether the task can be removed from the queue. */

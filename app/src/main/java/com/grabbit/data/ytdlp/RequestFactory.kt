@@ -36,6 +36,13 @@ object RequestFactory {
     fun buildFetchRequest(
         url: String,
         loadMixAsPlaylist: Boolean,
+    ): YoutubeDLRequest = buildFetchRequestWithClient(url, loadMixAsPlaylist, YtDlpArgs.FETCH_PLAYER_CLIENT)
+
+    /** Variant that allows specifying the player client for fallback logic. */
+    fun buildFetchRequestWithClient(
+        url: String,
+        loadMixAsPlaylist: Boolean,
+        playerClient: String,
     ): YoutubeDLRequest =
         YoutubeDLRequest(url).apply {
             addOption("--dump-single-json")
@@ -45,6 +52,7 @@ object RequestFactory {
             addOption("--ignore-config")
             addOption("--socket-timeout", Timing.FETCH_SOCKET_TIMEOUT_SECONDS)
             addOption("--extractor-retries", YtDlpArgs.FETCH_EXTRACTOR_RETRIES)
+            addOption("--extractor-args", "youtube:player_client=$playerClient")
             if (Links.isRadioPlaylist(url)) {
                 if (!loadMixAsPlaylist) {
                     addOption("--no-playlist")

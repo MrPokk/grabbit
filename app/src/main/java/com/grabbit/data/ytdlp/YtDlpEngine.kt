@@ -5,7 +5,9 @@ import com.grabbit.R
 import com.grabbit.core.AppError
 import com.grabbit.core.AppLog
 import com.grabbit.core.ErrorMapper
+import com.grabbit.core.Links
 import com.grabbit.core.Timing
+import com.grabbit.core.YtDlpArgs
 import com.grabbit.core.suspendRunCatching
 import com.grabbit.data.settings.SettingsRepository
 import com.yausername.ffmpeg.FFmpeg
@@ -22,11 +24,16 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 import java.io.File
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
 
 private const val TAG = "YtDlpEngine"
+// Cache TTL: 5 minutes
+private const val FETCH_CACHE_TTL_MS = 5 * 60 * 1000L
+// Evict entries older than 4x TTL (20 minutes) to allow some grace period
+private const val FETCH_CACHE_EVICT_MULTIPLIER = 4
 
 /** yt-dlp metadata parsing failed; [error] is safe to show in the UI. */
 class InfoException(
@@ -66,6 +73,8 @@ class YtDlpEngine
     constructor(
         @ApplicationContext private val context: Context,
         private val settings: SettingsRepository,
+        private val memoryCache: FetchMemoryCache,
+        private val cacheDao: FetchCacheDao,
     ) {
         private val initLock = Mutex()
 
@@ -104,45 +113,56 @@ class YtDlpEngine
             loadMixAsPlaylist: Boolean,
             processId: String = UUID.randomUUID().toString(),
         ): FetchedMedia {
-            ensureInitialized()
-            return withContext(Dispatchers.IO) {
-                val request = RequestFactory.buildFetchRequest(url, loadMixAsPlaylist)
-                AppLog.d(TAG) { "fetch command: ${request.buildCommand()}" }
-                val timedOut = AtomicBoolean(false)
-                val watchdog =
-                    launch {
-                        delay(Timing.FETCH_TIMEOUT.inWholeMilliseconds)
-                        if (YoutubeDL.getInstance().destroyProcessById(processId)) {
-                            timedOut.set(true)
-                        }
-                    }
-                try {
-                    val response = YoutubeDL.getInstance().execute(request, processId)
-                    AppLog.d(TAG) {
-                        "fetch exit=${response.exitCode} stdout=${response.out.length} stderr=${response.err}"
-                    }
-                    parseResponse(response.out, url)
-                } catch (e: CancellationException) {
-                    YoutubeDL.getInstance().destroyProcessById(processId)
-                    throw e
-                } catch (e: CanceledException) {
-                    AppLog.e(TAG, "yt-dlp fetch was cancelled", e)
-                    if (timedOut.get()) {
-                        throw InfoException(AppError(R.string.error_fetch_timeout, e.message), e)
-                    }
-                    throw CancellationException("fetch cancelled", e)
-                } catch (e: InfoException) {
-                    throw e
-                } catch (e: Exception) {
-                    AppLog.e(TAG, "yt-dlp fetch failed: ${e.message}", e)
-                    if (timedOut.get()) {
-                        throw InfoException(AppError(R.string.error_fetch_timeout, e.message), e)
-                    }
-                    throw InfoException(ErrorMapper.fromYtDlp(e.message, url), e)
-                } finally {
-                    watchdog.cancel()
+            val normalizedUrl = Links.normalize(url)
+            val cacheKey = "$normalizedUrl|$loadMixAsPlaylist"
+
+            // Check in-memory cache first
+            memoryCache.get(cacheKey)?.let { cached ->
+                AppLog.d(TAG) { "fetch cache hit (memory): $cacheKey" }
+                return cached
+            }
+
+            // Check persistent cache
+            val cachedEntity = cacheDao.getFresh(cacheKey, System.currentTimeMillis() - FETCH_CACHE_TTL_MS)
+            cachedEntity?.let { entity ->
+                FetchCacheSerializer.fromJson(entity.json)?.let { cached ->
+                    AppLog.d(TAG) { "fetch cache hit (disk): $cacheKey" }
+                    memoryCache.put(cacheKey, cached)
+                    return cached
                 }
             }
+
+            ensureInitialized()
+            // Try primary player client, then fallback
+            val media = try {
+                withContext(Dispatchers.IO) {
+                    fetchWithClient(normalizedUrl, loadMixAsPlaylist, processId, YtDlpArgs.FETCH_PLAYER_CLIENT)
+                }
+            } catch (e: InfoException) {
+                // If primary client fails with extractor error, try fallback
+                if (e.error.suggestUpdate) {
+                    AppLog.d(TAG) {
+                        "Primary player client failed, trying fallback: " +
+                            YtDlpArgs.FETCH_PLAYER_CLIENT_FALLBACK
+                    }
+                    withContext(Dispatchers.IO) {
+                        fetchWithClient(
+                            normalizedUrl, loadMixAsPlaylist, processId,
+                            YtDlpArgs.FETCH_PLAYER_CLIENT_FALLBACK
+                        )
+                    }
+                } else {
+                    throw e
+                }
+            }
+
+            // Cache the result
+            memoryCache.put(cacheKey, media)
+            cacheDao.put(FetchCacheEntity(cacheKey, FetchCacheSerializer.toJson(media)))
+            // Evict old entries periodically
+            cacheDao.evictOlderThan(System.currentTimeMillis() - FETCH_CACHE_TTL_MS * FETCH_CACHE_EVICT_MULTIPLIER)
+
+            return media
         }
 
         /** Kills a running metadata extraction when the user cancels or refetches. */
@@ -220,6 +240,50 @@ class YtDlpEngine
                     AppLog.e(TAG, "yt-dlp update failed: ${e.message}", e)
                     UpdateOutcome.Failed(e.message ?: e::class.java.simpleName)
                 }
+            }
+        }
+
+        private suspend fun fetchWithClient(
+            normalizedUrl: String,
+            loadMixAsPlaylist: Boolean,
+            processId: String,
+            playerClient: String,
+        ): FetchedMedia = withContext(Dispatchers.IO) {
+            val request = RequestFactory.buildFetchRequestWithClient(normalizedUrl, loadMixAsPlaylist, playerClient)
+            AppLog.d(TAG) { "fetch command: ${request.buildCommand()}" }
+            val timedOut = AtomicBoolean(false)
+            val watchdog =
+                launch {
+                    delay(Timing.FETCH_TIMEOUT.inWholeMilliseconds)
+                    if (YoutubeDL.getInstance().destroyProcessById(processId)) {
+                        timedOut.set(true)
+                    }
+                }
+            try {
+                val response = YoutubeDL.getInstance().execute(request, processId)
+                AppLog.d(TAG) {
+                    "fetch exit=${response.exitCode} stdout=${response.out.length} stderr=${response.err}"
+                }
+                parseResponse(response.out, normalizedUrl)
+            } catch (e: CancellationException) {
+                YoutubeDL.getInstance().destroyProcessById(processId)
+                throw e
+            } catch (e: CanceledException) {
+                AppLog.e(TAG, "yt-dlp fetch was cancelled", e)
+                if (timedOut.get()) {
+                    throw InfoException(AppError(R.string.error_fetch_timeout, e.message), e)
+                }
+                throw CancellationException("fetch cancelled", e)
+            } catch (e: InfoException) {
+                throw e
+            } catch (e: Exception) {
+                AppLog.e(TAG, "yt-dlp fetch failed: ${e.message}", e)
+                if (timedOut.get()) {
+                    throw InfoException(AppError(R.string.error_fetch_timeout, e.message), e)
+                }
+                throw InfoException(ErrorMapper.fromYtDlp(e.message, normalizedUrl), e)
+            } finally {
+                watchdog.cancel()
             }
         }
 

@@ -227,9 +227,7 @@ internal fun TaskActions(
 ) {
     Row {
         when (task.status) {
-            TaskStatus.QUEUED, TaskStatus.PREPARING, TaskStatus.DOWNLOADING,
-            TaskStatus.CONVERTING, TaskStatus.SAVING,
-            -> {
+            TaskStatus.QUEUED, TaskStatus.PREPARING, TaskStatus.DOWNLOADING, TaskStatus.SAVING -> {
                 IconButton(onClick = callbacks.onPause) {
                     Icon(Icons.Rounded.Pause, contentDescription = stringResource(R.string.action_pause))
                 }
@@ -283,7 +281,6 @@ internal fun statusText(task: DownloadTask): String =
             }
         }
 
-        TaskStatus.CONVERTING -> stringResource(R.string.status_converting)
         TaskStatus.SAVING -> stringResource(R.string.status_saving)
         TaskStatus.COMPLETED -> stringResource(R.string.status_completed)
         TaskStatus.PAUSED -> stringResource(R.string.status_paused)

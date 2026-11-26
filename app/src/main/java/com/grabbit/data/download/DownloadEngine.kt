@@ -251,39 +251,10 @@ class DownloadEngine
                     )
 
                 update(id) { it.copy(status = TaskStatus.DOWNLOADING) }
-                var output =
+                val output =
                     ytDlp.download(spec) { progress, eta, line ->
                         onProgress(id, progress, eta, line)
                     }
-
-                val convertTo = options.convertTo
-                if (convertTo != null && !convertTo.ext.equals(output.extension, ignoreCase = true)) {
-                    update(
-                        id,
-                    ) { it.copy(status = TaskStatus.CONVERTING, progress = 0f, speed = null, etaSeconds = null) }
-                    val converted = File(workDir, "${output.nameWithoutExtension}.${convertTo.ext}")
-                    val result =
-                        ffmpeg.convert(
-                            input = output,
-                            output = converted,
-                            target = convertTo,
-                            bitrate = options.audioBitrate,
-                            key = id,
-                        ) { percent ->
-                            update(id) { it.copy(progress = percent / Formatting.PERCENT_SCALE_F) }
-                        }
-                    if (result.isSuccess) {
-                        output.delete()
-                        output = converted
-                    } else {
-                        throw DownloadException(
-                            AppError(
-                                com.grabbit.R.string.error_ffmpeg,
-                                result.exceptionOrNull()?.message,
-                            ),
-                        )
-                    }
-                }
 
                 update(id) { it.copy(status = TaskStatus.SAVING, progress = 1f, speed = null, etaSeconds = null) }
                 val mimeType = MimeTypes.forExt(output.extension)

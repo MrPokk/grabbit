@@ -5,6 +5,14 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.io.File
 import java.util.Properties
 
+private val localProps = Properties().apply {
+    rootProject.file("local.properties").inputStream().use { load(it) }
+}
+private val storeFile = localProps["storeFile"]?.toString()
+private val storePassword = localProps["storePassword"]?.toString()
+private val keyAlias = localProps["keyAlias"]?.toString()
+private val keyPassword = localProps["keyPassword"]?.toString()
+
 val i18nRoot = layout.projectDirectory.dir("src/main/i18n").asFile
 val defaultLanguage = "en"
 val localeCodes =
@@ -115,8 +123,16 @@ android {
         )
 
         // The bundled yt-dlp / python / ffmpeg binaries ship for these ABIs only.
-        ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
+        // ABI splits produce one APK per ABI (no fat universal APK).
+        // ndk.abiFilters is not set here; splits controls which ABIs are packaged per APK.
+    }
+
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86_64")
+            isUniversalApk = false
         }
     }
 
@@ -128,6 +144,20 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            val sf = storeFile
+            val sp = storePassword
+            val ka = keyAlias
+            val kp = keyPassword
+            if (sf != null && sp != null && ka != null && kp != null) {
+                // Keystore is in project root, not app module
+                val storeFilePath = File(rootProject.projectDir, sf).absolutePath
+                signingConfig = signingConfigs.create("release") {
+                    storeFile = File(storeFilePath)
+                    storePassword = sp
+                    keyAlias = ka
+                    keyPassword = kp
+                }
+            }
         }
         debug {
             applicationIdSuffix = ".debug"
@@ -163,6 +193,8 @@ android {
 
     androidResources {
         generateLocaleConfig = true
+        // Only ship locales the app actually translates.
+        localeFilters.addAll(listOf("en", "ru"))
     }
 
     lint {

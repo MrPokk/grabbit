@@ -218,7 +218,6 @@
     <string name="sheet_title">Параметры загрузки</string>
     <string name="status_cancelled">Отменено</string>
     <string name="status_completed">Готово</string>
-    <string name="status_converting">Конвертация…</string>
     <string name="status_downloading">Загрузка</string>
     <string name="status_downloading_details">%1$s · %2$s</string>
     <string name="status_failed">Ошибка</string>

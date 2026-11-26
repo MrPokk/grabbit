@@ -88,6 +88,11 @@ object YtDlpArgs {
     const val DOWNLOAD_RETRIES = 5
     const val CONCURRENT_FRAGMENTS = 4
     const val PLAYLIST_INDEX_PAD = 2
+
+    // Fastest YouTube player client for metadata extraction (android_music is typically fastest)
+    // Fallback order: android_music > android > mweb > tv_embedded
+    const val FETCH_PLAYER_CLIENT = "android_music"
+    const val FETCH_PLAYER_CLIENT_FALLBACK = "android"
 }
 
 /** FFmpeg arguments and resource limits. */

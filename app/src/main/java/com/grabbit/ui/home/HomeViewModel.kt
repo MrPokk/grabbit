@@ -9,6 +9,7 @@ import com.grabbit.core.AppError
 import com.grabbit.core.AppLog
 import com.grabbit.core.Links
 import com.grabbit.core.MediaPlatform
+import com.grabbit.core.Timing
 import com.grabbit.core.stateInUi
 import com.grabbit.core.suspendRunCatching
 import com.grabbit.data.download.DownloadOptions
@@ -29,6 +30,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -38,9 +40,12 @@ import java.util.UUID
 import javax.inject.Inject
 
 private const val TAG = "HomeViewModel"
+// Debounce delay before auto-fetching after URL change (~300ms)
+private const val FETCH_DEBOUNCE_MS = 300L
 
 /** Owns link input, metadata fetching and playlist selection for the home screen. */
 @HiltViewModel
+@Suppress("TooManyFunctions") // ViewModel with many UI actions; splitting would harm clarity
 class HomeViewModel
     @Inject
     constructor(
@@ -84,9 +89,10 @@ class HomeViewModel
             readClipboard()
         }
 
-        /** Updates the URL field and hides the clipboard hint. */
+        /** Updates the URL field and hides the clipboard hint. Triggers debounced auto-fetch. */
         fun onUrlChange(value: String) {
             _state.update { it.copy(url = value, clipboardHint = false) }
+            scheduleAutoFetch(value)
         }
 
         /** Fills the URL field from the clipboard when it holds a link. */
@@ -94,6 +100,21 @@ class HomeViewModel
             val link = clipboardLink()
             if (link != null) {
                 _state.update { it.copy(url = link, clipboardHint = true, error = null) }
+                scheduleAutoFetch(link)
+            }
+        }
+
+        private var autoFetchJob: Job? = null
+
+        private fun scheduleAutoFetch(rawUrl: String) {
+            val extracted = Links.extract(rawUrl)?.let(Links::normalize) ?: return
+            autoFetchJob?.cancel()
+            autoFetchJob = viewModelScope.launch {
+                delay(FETCH_DEBOUNCE_MS)
+                // Re-check URL hasn't changed during debounce
+                if (Links.normalize(_state.value.url) == extracted && _state.value.selectedPlatform == null) {
+                    fetchUrl(extracted)
+                }
             }
         }
 
@@ -262,6 +283,8 @@ class HomeViewModel
         }
 
         private fun cancelWork() {
+            autoFetchJob?.cancel()
+            autoFetchJob = null
             fetchJob?.cancel()
             fetchJob = null
             fetchProcessId?.let(ytDlp::cancelFetch)

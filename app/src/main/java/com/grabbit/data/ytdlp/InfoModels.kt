@@ -1,7 +1,9 @@
 package com.grabbit.data.ytdlp
 
 import com.grabbit.core.UiValues
+import kotlinx.serialization.Serializable
 
+@Serializable
 sealed interface FetchedMedia {
     val title: String
     val uploader: String?
@@ -9,6 +11,7 @@ sealed interface FetchedMedia {
     val sourceUrl: String
 
     /** A single video or audio item. */
+    @Serializable
     data class Single(
         val info: MediaInfo,
     ) : FetchedMedia {
@@ -19,6 +22,7 @@ sealed interface FetchedMedia {
     }
 
     /** A playlist, channel or mix; [truncated] means yt-dlp reported more items than returned. */
+    @Serializable
     data class Collection(
         override val title: String,
         override val uploader: String?,
@@ -30,6 +34,7 @@ sealed interface FetchedMedia {
 }
 
 /** Metadata of one media item and the formats yt-dlp reported for it. */
+@Serializable
 data class MediaInfo(
     val id: String,
     val url: String,
@@ -55,6 +60,7 @@ data class MediaInfo(
 }
 
 /** One downloadable stream from yt-dlp's `formats` list. */
+@Serializable
 data class FormatInfo(
     val id: String,
     val ext: String,
@@ -72,6 +78,7 @@ data class FormatInfo(
 }
 
 /** One entry of a playlist or mix. */
+@Serializable
 data class PlaylistItem(
     val index: Int,
     val id: String,
