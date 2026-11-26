@@ -5,6 +5,7 @@
     <string name="action_choose_format">Выбрать формат</string>
     <string name="action_clear_finished">Очистить завершённые</string>
     <string name="action_close">Закрыть</string>
+    <string name="action_collapse">Свернуть очередь</string>
     <string name="action_delete">Удалить</string>
     <string name="action_fetch">Скачать</string>
     <string name="action_import">Импорт</string>
@@ -25,6 +26,7 @@
     <string name="app_name">Grabbit</string>
     <string name="bitrate_kbps">%1$d кбит/с</string>
     <string name="cd_clear">Очистить ссылку</string>
+    <string name="cd_expand_downloads">Развернуть очередь загрузок</string>
     <string name="cd_more">Ещё</string>
     <plurals name="cd_queue">
         <item quantity="one">Открыть очередь, %1$d загрузка</item>

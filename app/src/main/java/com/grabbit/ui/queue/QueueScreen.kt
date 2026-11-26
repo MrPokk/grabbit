@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.DownloadDone
+import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -47,6 +48,8 @@ import com.grabbit.ui.theme.Dimens
 fun QueueScreen(
     onBack: () -> Unit,
     onOpenSettings: () -> Unit,
+    modifier: Modifier = Modifier,
+    onCollapse: (() -> Unit)? = null,
     viewModel: QueueViewModel = hiltViewModel(),
 ) {
     val tasks by viewModel.tasks.collectAsStateWithLifecycle()
@@ -56,15 +59,24 @@ fun QueueScreen(
     val context = LocalContext.current
     var pendingDelete by remember { mutableStateOf<DownloadTask?>(null) }
 
-    Column(Modifier.fillMaxSize()) {
+    Column(modifier.fillMaxSize()) {
         TopAppBar(
             title = { Text(stringResource(R.string.queue_title)) },
             navigationIcon = {
-                IconButton(onClick = onBack) {
-                    Icon(
-                        Icons.AutoMirrored.Rounded.ArrowBack,
-                        contentDescription = stringResource(R.string.action_back),
-                    )
+                if (onCollapse != null) {
+                    IconButton(onClick = onCollapse) {
+                        Icon(
+                            Icons.Rounded.ExpandMore,
+                            contentDescription = stringResource(R.string.action_collapse),
+                        )
+                    }
+                } else {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            Icons.AutoMirrored.Rounded.ArrowBack,
+                            contentDescription = stringResource(R.string.action_back),
+                        )
+                    }
                 }
             },
             scrollBehavior = scrollBehavior,

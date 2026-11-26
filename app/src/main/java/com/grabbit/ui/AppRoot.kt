@@ -1,32 +1,18 @@
 package com.grabbit.ui
 
-import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
@@ -35,22 +21,17 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.grabbit.R
 import com.grabbit.core.Timing
-import com.grabbit.ui.components.DownloadFab
+import com.grabbit.ui.components.AppBottomBar
+import com.grabbit.ui.components.FloatingDownloadOverlay
+import com.grabbit.ui.components.rememberFloatingDownloadState
 import com.grabbit.ui.convert.ConvertScreen
 import com.grabbit.ui.history.HistoryScreen
 import com.grabbit.ui.home.HomeScreen
 import com.grabbit.ui.queue.QueueScreen
+import com.grabbit.ui.queue.QueueViewModel
 import com.grabbit.ui.settings.SettingsScreen
-import com.grabbit.ui.theme.Dimens
 import kotlinx.coroutines.flow.StateFlow
-
-private data class Destination(
-    val route: String,
-    @StringRes val label: Int,
-    val icon: ImageVector,
-)
 
 /** Root navigation host with the bottom bar for the main destinations. */
 @Composable
@@ -60,43 +41,40 @@ fun AppRoot(
 ) {
     val navController = rememberNavController()
     val appViewModel: AppViewModel = hiltViewModel()
+    val queueViewModel: QueueViewModel = hiltViewModel()
     val queueSummary by appViewModel.queueSummary.collectAsStateWithLifecycle()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route ?: Routes.DOWNLOAD
     val link by incomingLink.collectAsStateWithLifecycle()
-    val showFab =
+    val floatingState = rememberFloatingDownloadState()
+    val showWidget =
         (currentRoute == Routes.DOWNLOAD || currentRoute == Routes.HISTORY) && queueSummary.count > 0
-    val fabAnimationSpec = tween<Float>(Timing.FAB_ANIMATION_DURATION_MS)
+    val widgetAnimationSpec = tween<Float>(Timing.FAB_ANIMATION_DURATION_MS)
 
-    val destinations =
-        remember {
-            listOf(
-                Destination(Routes.DOWNLOAD, R.string.nav_download, Icons.Rounded.Download),
-                Destination(Routes.HISTORY, R.string.nav_history, Icons.Rounded.History),
-                Destination(Routes.SETTINGS, R.string.nav_settings, Icons.Rounded.Settings),
-            )
+    LaunchedEffect(currentRoute) {
+        if (currentRoute != Routes.DOWNLOAD && currentRoute != Routes.HISTORY) {
+            floatingState.collapse()
         }
+    }
+
+    LaunchedEffect(queueSummary.count) {
+        if (queueSummary.count == 0) {
+            floatingState.collapse()
+        }
+    }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
-            if (destinations.any { it.route == currentRoute }) {
-                NavigationBar {
-                    destinations.forEach { destination ->
-                        NavigationBarItem(
-                            selected = currentRoute == destination.route,
-                            onClick = {
-                                if (currentRoute != destination.route) {
-                                    navController.navigateToTopLevel(destination.route)
-                                }
-                            },
-                            icon = {
-                                Icon(destination.icon, contentDescription = null)
-                            },
-                            label = { Text(stringResource(destination.label)) },
-                        )
-                    }
-                }
+            if (
+                currentRoute == Routes.DOWNLOAD ||
+                currentRoute == Routes.HISTORY ||
+                currentRoute == Routes.SETTINGS
+            ) {
+                AppBottomBar(
+                    currentRoute = currentRoute,
+                    onNavigate = { route -> navController.navigateToTopLevel(route) },
+                )
             }
         },
     ) { padding ->
@@ -121,6 +99,7 @@ fun AppRoot(
                     QueueScreen(
                         onBack = { navController.popBackStack() },
                         onOpenSettings = { navController.navigateToTopLevel(Routes.SETTINGS) },
+                        viewModel = queueViewModel,
                     )
                 }
                 composable(Routes.HISTORY) {
@@ -136,16 +115,15 @@ fun AppRoot(
                 }
             }
             AnimatedVisibility(
-                visible = showFab,
-                modifier = Modifier.align(Alignment.TopEnd).padding(top = Dimens.md, end = Dimens.md),
-                enter = fadeIn(animationSpec = fabAnimationSpec) + scaleIn(animationSpec = fabAnimationSpec),
-                exit = fadeOut(animationSpec = fabAnimationSpec) + scaleOut(animationSpec = fabAnimationSpec),
+                visible = showWidget,
+                enter = fadeIn(animationSpec = widgetAnimationSpec),
+                exit = fadeOut(animationSpec = widgetAnimationSpec),
             ) {
-                DownloadFab(
+                FloatingDownloadOverlay(
                     summary = queueSummary,
-                    onClick = {
-                        navController.navigate(Routes.QUEUE) { launchSingleTop = true }
-                    },
+                    state = floatingState,
+                    queueViewModel = queueViewModel,
+                    onOpenSettings = { navController.navigateToTopLevel(Routes.SETTINGS) },
                 )
             }
         }

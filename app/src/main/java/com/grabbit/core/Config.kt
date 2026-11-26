@@ -14,6 +14,9 @@ object Timing {
     val FLOW_SUBSCRIPTION_GRACE: Duration = 5.seconds
     val SEARCH_DEBOUNCE: Duration = 150.milliseconds
     const val FAB_ANIMATION_DURATION_MS = 200
+    const val NAV_ANIMATION_DURATION_MS = 250
+    const val FLOATING_SNAP_DURATION_MS = 220
+    const val QUEUE_PANEL_ANIMATION_DURATION_MS = 220
 
     const val FETCH_SOCKET_TIMEOUT_SECONDS = 20
     const val DOWNLOAD_SOCKET_TIMEOUT_SECONDS = 30
@@ -99,6 +102,13 @@ object UiValues {
     const val CONCURRENCY_SLIDER_STEPS = 3
     const val THUMBNAIL_ASPECT_RATIO = 16f / 9f
     const val DETAILS_MAX_LINES = 12
+
+    const val MIDPOINT = 0.5f
+    const val NAV_DOWNLOAD_UNSELECTED_SCALE = 0.92f
+    const val FLOATING_INITIAL_VERTICAL_FRACTION = 0.35f
+    const val FLOATING_EDGE_SNAP_FRACTION = MIDPOINT
+    const val FLOATING_DOCK_OVERLAP_FRACTION = 0.25f
+    const val FLOATING_SCRIM_ALPHA = 0.32f
 
     val BITRATES =
         listOf(
