@@ -148,13 +148,13 @@
     <string name="queue_file_info">%1$s · %2$s</string>
     <string name="queue_progress_percent">%1$d%%</string>
     <string name="queue_title">Очередь</string>
-    <string name="settings_check_updates">Проверять обновления автоматически</string>
+    <string name="settings_check_updates">Автопроверка обновлений</string>
     <string name="settings_concurrent">Одновременных загрузок</string>
     <string name="settings_concurrent_value">%1$d одновременно</string>
     <string name="settings_convert">Конвертировать файл</string>
-    <string name="settings_convert_desc">Сменить формат уже скачанного файла</string>
+    <string name="settings_convert_desc">Сменить формат скачанного файла</string>
     <string name="settings_cookies">Файл cookies</string>
-    <string name="settings_cookies_desc">Импортируйте cookies.txt для закрытых видео и видео с возрастным ограничением</string>
+    <string name="settings_cookies_desc">Cookies.txt для приватных и возрастных видео</string>
     <string name="settings_cookies_invalid">Это не файл cookies.txt в формате Netscape</string>
     <string name="settings_cookies_loaded">Загружен: %1$s</string>
     <string name="settings_default_audio">Формат аудио по умолчанию</string>
@@ -169,7 +169,7 @@
     <string name="settings_filename_desc">Шаблон yt-dlp, например %%(title)s - %%(uploader)s</string>
     <string name="settings_language">Язык</string>
     <string name="settings_language_system">Системный</string>
-    <string name="settings_legal">Скачивайте только для личного использования. Уважайте авторские права и правила сайтов. Версия %1$s</string>
+    <string name="settings_legal">Личное использование. Уважайте авторские права и правила сайтов. Версия %1$s</string>
     <string name="settings_pick_folder">Выбрать папку</string>
     <string name="settings_proxy">Прокси</string>
     <string name="settings_proxy_desc">например, socks5://127.0.0.1:1080</string>
@@ -191,7 +191,7 @@
     <string name="settings_update_done">yt-dlp обновлён</string>
     <string name="settings_update_failed">Ошибка обновления: %1$s</string>
     <string name="settings_update_latest">Обновления не нужны</string>
-    <string name="settings_update_note">Экстракторы ломаются, когда сайты меняются. Обновление исправляет большинство ошибок загрузки.</string>
+    <string name="settings_update_note">Обновление чинит экстракторы после изменений сайтов.</string>
     <string name="settings_update_now">Обновить yt-dlp</string>
     <string name="settings_updating">Обновление…</string>
     <string name="settings_version">Версия приложения</string>

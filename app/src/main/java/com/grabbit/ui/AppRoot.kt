@@ -5,14 +5,18 @@ import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
@@ -47,6 +51,7 @@ fun AppRoot(
     val currentRoute = backStackEntry?.destination?.route ?: Routes.DOWNLOAD
     val link by incomingLink.collectAsStateWithLifecycle()
     val floatingState = rememberFloatingDownloadState()
+    val imeBottom = WindowInsets.ime.asPaddingValues().calculateBottomPadding()
     val showWidget =
         (currentRoute == Routes.DOWNLOAD || currentRoute == Routes.HISTORY) && queueSummary.count > 0
     val widgetAnimationSpec = tween<Float>(Timing.FAB_ANIMATION_DURATION_MS)
@@ -78,10 +83,13 @@ fun AppRoot(
             }
         },
     ) { padding ->
+        // With the keyboard open the bar sits under it; reserving its height here would lift the URL field twice.
+        val contentPadding =
+            if (currentRoute == Routes.DOWNLOAD && imeBottom > 0.dp) PaddingValues() else padding
         Box(
             modifier =
                 Modifier
-                    .padding(padding)
+                    .padding(contentPadding)
                     .fillMaxSize(),
         ) {
             NavHost(
