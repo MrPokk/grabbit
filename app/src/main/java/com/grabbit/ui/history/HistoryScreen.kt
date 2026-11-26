@@ -30,8 +30,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SearchBarDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -90,37 +90,31 @@ fun HistoryScreen(viewModel: HistoryViewModel = hiltViewModel()) {
             scrollBehavior = scrollBehavior,
         )
 
-        SearchBarDefaults.InputField(
-            query = query,
-            onQueryChange = viewModel::setQuery,
-            onSearch = { _ -> Unit },
-            expanded = false,
-            onExpandedChange = { _ -> Unit },
-            placeholder = { Text(stringResource(R.string.history_search)) },
-            leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
-            trailingIcon = {
-                if (query.isNotEmpty()) {
-                    IconButton(onClick = { viewModel.setQuery("") }) {
-                        Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.cd_clear))
-                    }
-                }
-            },
-            colors =
-                TextFieldDefaults.colors(
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                    disabledContainerColor = Color.Transparent,
-                    errorContainerColor = Color.Transparent,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                    disabledIndicatorColor = Color.Transparent,
-                    errorIndicatorColor = Color.Transparent,
-                ),
+        Surface(
             modifier =
                 Modifier
                     .fillMaxWidth()
                     .padding(start = Dimens.lg, top = Dimens.md, end = Dimens.lg, bottom = Dimens.md),
-        )
+            shape = MaterialTheme.shapes.extraLarge,
+            color = Color.Transparent,
+        ) {
+            SearchBarDefaults.InputField(
+                query = query,
+                onQueryChange = viewModel::setQuery,
+                onSearch = { _ -> Unit },
+                expanded = false,
+                onExpandedChange = { _ -> Unit },
+                placeholder = { Text(stringResource(R.string.history_search)) },
+                leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+                trailingIcon = {
+                    if (query.isNotEmpty()) {
+                        IconButton(onClick = { viewModel.setQuery("") }) {
+                            Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.cd_clear))
+                        }
+                    }
+                },
+            )
+        }
 
         Spacer(Modifier.height(Dimens.xs))
 
