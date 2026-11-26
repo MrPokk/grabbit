@@ -7,8 +7,10 @@ import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Environment
 import android.os.FileUriExposedException
 import android.provider.DocumentsContract
+import android.provider.MediaStore
 import android.widget.Toast
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
@@ -26,10 +28,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.core.net.toUri
 import com.grabbit.R
 import com.grabbit.core.AppLog
+import java.io.File
 
 private const val TAG = "DownloadActions"
 
 private const val EXTERNAL_STORAGE_AUTHORITY = "com.android.externalstorage.documents"
+
+private const val PRIMARY_VOLUME = "primary"
 
 // Every menu entry is an independent callback; grouping them into a holder would obscure the wiring.
 @Suppress("LongParameterList")
@@ -123,7 +128,7 @@ fun showSavedFileInFolder(
 ) {
     val fileUri = uri.toUri()
     // Prefer showing the parent folder so the user sees the file next to its siblings.
-    val folderUri = savedFileFolderUri(fileUri)
+    val folderUri = savedFileFolderUri(context, fileUri)
     val showFolder =
         folderUri != null &&
             openUriViaChooser(
@@ -182,24 +187,62 @@ private fun copyPathToClipboard(
     Toast.makeText(context, R.string.path_copied_to_clipboard, Toast.LENGTH_SHORT).show()
 }
 
-private fun savedFileFolderUri(uri: Uri): Uri? {
-    if (uri.scheme == ContentResolver.SCHEME_FILE || uri.authority != EXTERNAL_STORAGE_AUTHORITY) {
-        // SAF tree/document URIs are the only folder URIs we can build safely.
-        // MediaStore and file:// URIs fall back to opening the file itself.
-        return null
+private fun savedFileFolderUri(
+    context: Context,
+    uri: Uri,
+): Uri? {
+    if (uri.scheme == ContentResolver.SCHEME_FILE) {
+        return uri.path?.let(::folderUriForAbsolutePath)
     }
-    val documentId =
-        if (DocumentsContract.isTreeUri(uri)) {
-            DocumentsContract.getTreeDocumentId(uri)
+    return when (uri.authority) {
+        MediaStore.AUTHORITY -> folderUriFromMediaStore(context, uri)
+        EXTERNAL_STORAGE_AUTHORITY -> folderUriFromDocument(uri)
+        else -> null
+    }
+}
+
+@Suppress("DEPRECATION")
+private fun folderUriFromMediaStore(
+    context: Context,
+    uri: Uri,
+): Uri? {
+    val projection = arrayOf(MediaStore.MediaColumns.RELATIVE_PATH, MediaStore.MediaColumns.DATA)
+    val cursor = context.contentResolver.query(uri, projection, null, null, null) ?: return null
+    return cursor.use { c ->
+        if (!c.moveToFirst()) return@use null
+        val relativeIndex = c.getColumnIndex(MediaStore.MediaColumns.RELATIVE_PATH)
+        val relative = if (relativeIndex >= 0) c.getString(relativeIndex) else null
+        if (!relative.isNullOrBlank()) {
+            folderUriForRelativePath(relative)
         } else {
-            DocumentsContract.getDocumentId(uri)
+            val dataIndex = c.getColumnIndex(MediaStore.MediaColumns.DATA)
+            val data = if (dataIndex >= 0) c.getString(dataIndex) else null
+            if (data.isNullOrBlank()) null else folderUriForAbsolutePath(data)
         }
+    }
+}
+
+private fun folderUriFromDocument(uri: Uri): Uri? {
+    val documentId = DocumentsContract.getDocumentId(uri)
     if (!documentId.contains(':')) return null
     val volume = documentId.substringBefore(':')
     val path = documentId.substringAfter(':')
     val parentPath = path.substringBeforeLast('/', missingDelimiterValue = "")
     val parentDocumentId = if (parentPath.isEmpty()) volume else "$volume:$parentPath"
     return DocumentsContract.buildDocumentUri(EXTERNAL_STORAGE_AUTHORITY, parentDocumentId)
+}
+
+@Suppress("DEPRECATION")
+private fun folderUriForAbsolutePath(path: String): Uri? {
+    val parent = File(path).parent ?: return null
+    val root = Environment.getExternalStorageDirectory().absolutePath.trimEnd('/')
+    return folderUriForRelativePath(parent.removePrefix("$root/").trim('/'))
+}
+
+private fun folderUriForRelativePath(relative: String): Uri {
+    val trimmed = relative.trim('/')
+    val documentId = if (trimmed.isEmpty()) PRIMARY_VOLUME else "$PRIMARY_VOLUME:$trimmed"
+    return DocumentsContract.buildDocumentUri(EXTERNAL_STORAGE_AUTHORITY, documentId)
 }
 
 fun shareSavedFile(

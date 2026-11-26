@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="save_location_title">Место сохранения</string>
-    <string name="save_location_pick">Выбрать папку</string>
-    <string name="save_location_system">Системные папки (Music / Movies)</string>
+    <string name="save_location_title">Сохранение</string>
+    <string name="save_location_pick">Выбрать</string>
+    <string name="save_location_system">Обычная папка</string>
     <string name="save_location_custom">Своя папка</string>
-    <string name="save_location_clear">Использовать по умолчанию</string>
+    <string name="save_location_clear">Сбросить</string>
     <string name="file_name_label">Имя файла</string>
-    <string name="file_name_hint">Имя файла без расширения</string>
-    <string name="file_name_empty">Пусто — будет использован шаблон</string>
-    <string name="file_name_collision">Файл с таким именем уже существует</string>
+    <string name="file_name_hint">Без расширения</string>
+    <string name="file_name_empty">Пусто — шаблон</string>
+    <string name="file_name_collision">Имя уже занято</string>
 </resources>

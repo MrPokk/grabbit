@@ -206,31 +206,22 @@ fun FormatSheet(
                     saveFolderUri != null -> stringResource(R.string.save_location_custom)
                     else -> stringResource(R.string.save_location_system)
                 }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.save_location_title),
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                    Text(
-                        text = folderDescription,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Spacer(Modifier.width(Dimens.sm))
-                TextButton(onClick = { folderPicker.launch(null) }) {
-                    Text(stringResource(R.string.save_location_pick))
-                }
-                if (saveFolderUri != null) {
-                    TextButton(onClick = {
-                        saveFolderUri = null
-                        saveFolderName = null
-                    }) {
-                        Text(stringResource(R.string.save_location_clear))
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = folderDescription,
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(Dimens.xs)) {
+                    TextButton(onClick = { folderPicker.launch(null) }) {
+                        Text(stringResource(R.string.save_location_pick))
+                    }
+                    if (saveFolderUri != null) {
+                        TextButton(onClick = {
+                            saveFolderUri = null
+                            saveFolderName = null
+                        }) {
+                            Text(stringResource(R.string.save_location_clear))
+                        }
                     }
                 }
             }
