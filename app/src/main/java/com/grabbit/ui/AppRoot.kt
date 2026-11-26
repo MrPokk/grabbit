@@ -52,14 +52,18 @@ fun AppRoot(
     val link by incomingLink.collectAsStateWithLifecycle()
     val floatingState = rememberFloatingDownloadState()
     val imeBottom = WindowInsets.ime.asPaddingValues().calculateBottomPadding()
+    // Hide the floating download circle when the queue screen is open; show it again
+    // when returning to the download or history screen (panel closed).
     val showWidget =
-        (currentRoute == Routes.DOWNLOAD || currentRoute == Routes.HISTORY) && queueSummary.count > 0
+        (currentRoute == Routes.DOWNLOAD || currentRoute == Routes.HISTORY) &&
+            queueSummary.count > 0
     val widgetAnimationSpec = tween<Float>(Timing.FAB_ANIMATION_DURATION_MS)
 
     LaunchedEffect(currentRoute) {
         if (currentRoute != Routes.DOWNLOAD && currentRoute != Routes.HISTORY) {
             floatingState.collapse()
         }
+        // Returning to download/history: widget is shown via showWidget, stays collapsed (edge circle).
     }
 
     LaunchedEffect(queueSummary.count) {
