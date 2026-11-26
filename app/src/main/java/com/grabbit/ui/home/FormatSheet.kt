@@ -29,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import com.grabbit.R
 import com.grabbit.core.UiValues
@@ -192,6 +193,7 @@ private fun ToggleRow(
         modifier =
             Modifier
                 .fillMaxWidth()
+                .clip(MaterialTheme.shapes.medium)
                 .clickable { onCheckedChange(!checked) }
                 .padding(vertical = Dimens.xxs),
         verticalAlignment = Alignment.CenterVertically,

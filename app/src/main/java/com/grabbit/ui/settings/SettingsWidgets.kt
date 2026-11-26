@@ -32,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import com.grabbit.R
@@ -68,6 +69,7 @@ internal fun SwitchRow(
         modifier =
             Modifier
                 .fillMaxWidth()
+                .clip(MaterialTheme.shapes.medium)
                 .clickable { onCheckedChange(!checked) }
                 .padding(horizontal = Dimens.md, vertical = Dimens.xs),
         verticalAlignment = Alignment.CenterVertically,
@@ -151,6 +153,7 @@ internal fun ValueRow(
         modifier =
             Modifier
                 .fillMaxWidth()
+                .clip(MaterialTheme.shapes.medium)
                 .clickable(onClick = onClick)
                 .padding(Dimens.md),
         verticalAlignment = Alignment.CenterVertically,

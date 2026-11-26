@@ -78,7 +78,7 @@ fun HomeScreen(
             onClear = viewModel::clear,
             onPaste = viewModel::pasteFromClipboard,
             onFetch = viewModel::fetch,
-            modifier = Modifier.padding(start = Dimens.md, top = Dimens.xs, end = Dimens.md, bottom = Dimens.md),
+            modifier = Modifier.padding(start = Dimens.md, top = Dimens.xs, end = Dimens.md, bottom = Dimens.lg),
         )
     }
 
