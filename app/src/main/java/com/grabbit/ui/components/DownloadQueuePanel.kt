@@ -8,6 +8,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.ZeroCornerSize
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -22,6 +23,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
 import com.grabbit.R
 import com.grabbit.core.Timing
 import com.grabbit.core.UiValues
@@ -78,10 +80,16 @@ fun DownloadQueuePanel(
                         Modifier
                             .align(if (edge == DockEdge.LEFT) Alignment.CenterStart else Alignment.CenterEnd)
                             .fillMaxSize()
-                            .padding(Dimens.md),
-                    shape = MaterialTheme.shapes.large,
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    tonalElevation = Dimens.xxs,
+                            .padding(start = Dimens.md, top = Dimens.md, end = Dimens.md),
+                    shape =
+                        MaterialTheme.shapes.large.copy(
+                            bottomStart = ZeroCornerSize,
+                            bottomEnd = ZeroCornerSize,
+                        ),
+                    // Same colour as AppBottomBar's barColor (surfaceContainer); any tonal shade
+                    // would leave a seam around the goo ring.
+                    color = MaterialTheme.colorScheme.surfaceContainer,
+                    tonalElevation = 0.dp,
                     shadowElevation = Dimens.sm,
                 ) {
                     QueueScreen(

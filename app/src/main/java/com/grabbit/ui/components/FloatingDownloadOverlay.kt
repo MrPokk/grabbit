@@ -242,16 +242,15 @@ private fun DownloadCircleIfCollapsed(
 ) {
     if (!expanded) {
         DownloadProgressCircle(
-                summary = summary,
-                badgeAlignment =
-                    if (edge == DockEdge.RIGHT) Alignment.TopStart else Alignment.TopEnd,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                contentAlpha = 1f,
-                contentScale = 1f,
-                containerVisible = isDragging,
-                modifier = Modifier.size(Dimens.gooCircleSize),
-            )
-        }
+            summary = summary,
+            badgeAlignment = if (edge == DockEdge.RIGHT) Alignment.TopStart else Alignment.TopEnd,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            contentAlpha = 1f,
+            contentScale = 1f,
+            containerVisible = isDragging,
+            modifier = Modifier.size(Dimens.gooCircleSize),
+        )
+    }
 }
 
 // Suspends until BOTH axes finished, so goo starts only after the widget really touched the edge.
