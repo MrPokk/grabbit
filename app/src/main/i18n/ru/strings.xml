@@ -108,18 +108,15 @@
     <string name="notif_channel_downloads_desc">Прогресс загрузок и управление</string>
     <string name="notif_channel_updates">Обновления</string>
     <string name="notif_channel_updates_desc">Результаты обновления yt-dlp</string>
-    <string name="notif_summary_idle">Загрузки завершены</string>
-    <plurals name="notif_summary_text">
-        <item quantity="one">Загрузок в работе: %1$d</item>
-        <item quantity="few">Загрузок в работе: %1$d</item>
-        <item quantity="many">Загрузок в работе: %1$d</item>
-        <item quantity="other">Загрузок в работе: %1$d</item>
-    </plurals>
-    <string name="notif_text_failed">Загрузка не удалась</string>
     <string name="notif_text_preparing">Подготовка…</string>
-    <string name="notif_text_progress">%1$d%% · %2$s</string>
-    <string name="notif_title_complete">Загрузка завершена</string>
-    <string name="notif_title_downloading">Загрузка %1$s</string>
+    <plurals name="notif_downloading_files">
+        <item quantity="one">Загружается %1$d файл</item>
+        <item quantity="few">Загружается %1$d файла</item>
+        <item quantity="many">Загружается %1$d файлов</item>
+        <item quantity="other">Загружается %1$d файла</item>
+    </plurals>
+    <string name="notif_current_file_progress">%1$d из %2$d</string>
+    <string name="notif_overall_progress">Общий прогресс: %1$d%%</string>
     <string name="option_best">Лучшее</string>
     <string name="playlist_deselect_all">Снять выбор</string>
     <string name="playlist_download_selected">Скачать выбранные (%1$d)</string>
