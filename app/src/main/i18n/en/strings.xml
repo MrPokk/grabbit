@@ -104,16 +104,13 @@
     <string name="notif_channel_downloads_desc">Download progress and controls</string>
     <string name="notif_channel_updates">Updates</string>
     <string name="notif_channel_updates_desc">yt-dlp update results</string>
-    <string name="notif_summary_idle">Downloads finished</string>
-    <plurals name="notif_summary_text">
-        <item quantity="one">%1$d download in progress</item>
-        <item quantity="other">%1$d downloads in progress</item>
-    </plurals>
-    <string name="notif_text_failed">Download failed</string>
     <string name="notif_text_preparing">Preparing…</string>
-    <string name="notif_text_progress">%1$d%% · %2$s</string>
-    <string name="notif_title_complete">Download complete</string>
-    <string name="notif_title_downloading">Downloading %1$s</string>
+    <plurals name="notif_downloading_files">
+        <item quantity="one">Downloading %1$d file</item>
+        <item quantity="other">Downloading %1$d files</item>
+    </plurals>
+    <string name="notif_current_file_progress">%1$d of %2$d</string>
+    <string name="notif_overall_progress">Overall progress: %1$d%%</string>
     <string name="option_best">Best</string>
     <string name="playlist_deselect_all">Deselect all</string>
     <string name="playlist_download_selected">Download selected (%1$d)</string>
