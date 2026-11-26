@@ -9,6 +9,7 @@ import android.provider.MediaStore
 import androidx.annotation.RequiresApi
 import androidx.documentfile.provider.DocumentFile
 import com.grabbit.core.AppLog
+import com.grabbit.core.FileName
 import com.grabbit.core.Formatting
 import com.grabbit.core.Storage
 import com.grabbit.data.download.MediaType
@@ -56,7 +57,7 @@ class MediaSaver
             customFolder: Uri?,
         ): SavedFile =
             withContext(Dispatchers.IO) {
-                val safeName = sanitize(displayName)
+                val safeName = FileName.sanitize(displayName)
 
                 if (customFolder != null) {
                     val viaTree =
@@ -197,21 +198,13 @@ class MediaSaver
             dir: File,
             displayName: String,
         ): File {
-            var candidate = File(dir, displayName)
-            if (!candidate.exists()) return candidate
-            val base = displayName.substringBeforeLast('.', displayName)
-            val ext = displayName.substringAfterLast('.', "")
-            var index = 1
-            while (candidate.exists() && index < Storage.MAX_UNIQUE_FILE_INDEX) {
-                val name = if (ext.isBlank()) "$base ($index)" else "$base ($index).$ext"
-                candidate = File(dir, name)
-                index++
-            }
-            return candidate
-        }
-
-        private fun sanitize(name: String): String {
-            val cleaned = name.replace(Regex("[/\\\\:*?\"<>|]"), "_").trim()
-            return cleaned.ifBlank { "download" }
+            val existing =
+                dir
+                    .listFiles()
+                    ?.map { it.name }
+                    ?.toSet()
+                    .orEmpty()
+            val name = FileName.unique(displayName, existing)
+            return File(dir, name)
         }
     }

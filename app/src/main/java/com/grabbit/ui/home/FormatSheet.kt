@@ -1,5 +1,10 @@
 package com.grabbit.ui.home
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -19,8 +24,10 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -30,8 +37,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.documentfile.provider.DocumentFile
 import com.grabbit.R
+import com.grabbit.core.AppLog
 import com.grabbit.core.UiValues
 import com.grabbit.data.download.DownloadOptions
 import com.grabbit.data.download.MediaType
@@ -41,8 +51,11 @@ import com.grabbit.data.ytdlp.FetchedMedia
 import com.grabbit.data.ytdlp.availableHeights
 import com.grabbit.ui.theme.Dimens
 
+private const val TAG = "FormatSheet"
+
 /** Bottom sheet with format, quality and extra options for the current media. */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Suppress("LongMethod") // UI sheet; splitting threads many state parameters and harms clarity.
 @Composable
 fun FormatSheet(
     media: FetchedMedia,
@@ -53,10 +66,33 @@ fun FormatSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val heights = media.availableHeights()
     val initial = defaults.toDownloadOptions(MediaType.VIDEO, heights)
+    val isPlaylist = media is FetchedMedia.Collection
+    val context = LocalContext.current
 
     var options by remember { mutableStateOf(initial) }
     var mediaType by remember { mutableStateOf(initial.mediaType) }
     var videoHeight by remember { mutableStateOf(initial.maxHeight) }
+    var saveFolderUri by remember { mutableStateOf<String?>(defaults.customFolderUri) }
+    var saveFolderName by remember { mutableStateOf(folderDisplayName(context, Uri.parse(defaults.customFolderUri))) }
+    var fileName by remember { mutableStateOf(if (!isPlaylist) media.title else "") }
+
+    val folderPicker =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.OpenDocumentTree(),
+        ) { uri ->
+            uri?.let { pickedUri ->
+                try {
+                    context.contentResolver.takePersistableUriPermission(
+                        pickedUri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                    )
+                } catch (e: SecurityException) {
+                    AppLog.e(TAG, "could not persist the folder permission", e)
+                }
+                saveFolderUri = pickedUri.toString()
+                saveFolderName = folderDisplayName(context, pickedUri)
+            }
+        }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
@@ -155,6 +191,64 @@ fun FormatSheet(
                 options.sponsorBlock,
             ) { options = options.copy(sponsorBlock = it) }
 
+            // ----- Advanced: save location -----
+            HorizontalDivider(Modifier.padding(vertical = Dimens.xxs))
+            Label(stringResource(R.string.save_location_title))
+            val folderName = saveFolderName
+            val folderDescription =
+                when {
+                    folderName != null -> folderName
+                    saveFolderUri != null -> stringResource(R.string.save_location_custom)
+                    else -> stringResource(R.string.save_location_system)
+                }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.save_location_title),
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    Text(
+                        text = folderDescription,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Spacer(Modifier.width(Dimens.sm))
+                TextButton(onClick = { folderPicker.launch(null) }) {
+                    Text(stringResource(R.string.save_location_pick))
+                }
+                if (saveFolderUri != null) {
+                    TextButton(onClick = {
+                        saveFolderUri = null
+                        saveFolderName = null
+                    }) {
+                        Text(stringResource(R.string.save_location_clear))
+                    }
+                }
+            }
+
+            // ----- Advanced: file name (single video only) -----
+            if (!isPlaylist) {
+                HorizontalDivider(Modifier.padding(vertical = Dimens.xxs))
+                Label(stringResource(R.string.file_name_label))
+                OutlinedTextField(
+                    value = fileName,
+                    onValueChange = { fileName = it },
+                    singleLine = true,
+                    placeholder = { Text(stringResource(R.string.file_name_hint)) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    text = stringResource(R.string.file_name_empty),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = Dimens.xxs),
+                )
+            }
+
             Spacer(Modifier.height(Dimens.xs))
             Button(
                 onClick = {
@@ -162,6 +256,8 @@ fun FormatSheet(
                         options.copy(
                             mediaType = mediaType,
                             maxHeight = if (mediaType == MediaType.VIDEO) videoHeight else 0,
+                            saveFolderUri = saveFolderUri.takeIf { it?.isNotBlank() == true },
+                            fileName = fileName.takeIf { it?.isNotBlank() == true },
                         ),
                     )
                 },
@@ -172,6 +268,11 @@ fun FormatSheet(
         }
     }
 }
+
+private fun folderDisplayName(context: Context, uri: Uri?): String? =
+    uri?.let { treeUri ->
+        DocumentFile.fromTreeUri(context, treeUri)?.name
+    }
 
 @Composable
 private fun Label(text: String) {

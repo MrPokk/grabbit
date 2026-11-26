@@ -248,6 +248,10 @@ class DownloadEngine
                         cookiesPath = appSettings.cookiesPath?.takeIf { File(it).exists() },
                         proxy = appSettings.proxy.takeIf { it.isNotBlank() },
                         markerFile = marker,
+                        saveFolderUri =
+                            options.saveFolderUri.takeIf { it?.isNotBlank() == true }
+                                ?: appSettings.customFolderUri,
+                        fileName = options.fileName,
                     )
 
                 update(id) { it.copy(status = TaskStatus.DOWNLOADING) }
@@ -258,13 +262,18 @@ class DownloadEngine
 
                 update(id) { it.copy(status = TaskStatus.SAVING, progress = 1f, speed = null, etaSeconds = null) }
                 val mimeType = MimeTypes.forExt(output.extension)
+                val displayName =
+                    options.fileName
+                        .takeIf { it?.isNotBlank() == true }
+                        ?.let { "$it.${output.extension}" }
+                        ?: output.name
                 val saved =
                     saver.save(
                         source = output,
                         mediaType = options.mediaType,
                         mimeType = mimeType,
-                        displayName = output.name,
-                        customFolder = appSettings.customFolderUri?.toUri(),
+                        displayName = displayName,
+                        customFolder = spec.saveFolderUri?.toUri(),
                     )
                 output.delete()
 
