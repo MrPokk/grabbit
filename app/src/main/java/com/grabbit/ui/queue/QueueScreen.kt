@@ -1,6 +1,7 @@
 package com.grabbit.ui.queue
 
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -10,6 +11,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -71,6 +73,9 @@ fun QueueScreen(
     }
 
     Column(modifier.fillMaxSize()) {
+        BackHandler(enabled = onCollapse != null) {
+            onCollapse?.invoke()
+        }
         TopAppBar(
             title = { Text(stringResource(R.string.queue_title)) },
             navigationIcon = {
@@ -85,6 +90,14 @@ fun QueueScreen(
             },
             scrollBehavior = scrollBehavior,
             actions = {
+                if (onCollapse != null) {
+                    IconButton(onClick = onCollapse) {
+                        Icon(
+                            Icons.Rounded.Close,
+                            contentDescription = stringResource(R.string.action_close),
+                        )
+                    }
+                }
                 if (tasks.any { it.status.isFinished }) {
                     IconButton(onClick = viewModel::clearFinished) {
                         Icon(
