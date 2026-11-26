@@ -3,6 +3,7 @@ package com.grabbit.ui.components
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -25,6 +26,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -85,6 +87,13 @@ fun FloatingDownloadOverlay(
         }
     }
     val revealValue by reveal.asState()
+    // Fades the goo blob out when the queue panel opens, so the solid circle under the scrim
+    // stops peeking out next to the panel once it has fully faded.
+    val blobPresence by animateFloatAsState(
+        targetValue = if (state.expanded) 0f else 1f,
+        animationSpec = tween(Timing.QUEUE_PANEL_ANIMATION_DURATION_MS),
+        label = "blobPresence",
+    )
 
     val layoutDirection = LocalLayoutDirection.current
     val barPadding = WindowInsets.systemBars.asPaddingValues()
@@ -124,7 +133,7 @@ fun FloatingDownloadOverlay(
                         )
                     }.size(Dimens.gooCircleSize),
         ) {
-            if (!isDragging) {
+            if (!isDragging && blobPresence > 0f) {
                 GooeyEdgeBlob(
                     edge = state.edge,
                     reveal = revealValue,
@@ -132,7 +141,8 @@ fun FloatingDownloadOverlay(
                     modifier =
                         Modifier
                             .requiredSize(Dimens.gooLayerSize)
-                            .align(Alignment.Center),
+                            .align(Alignment.Center)
+                            .graphicsLayer { alpha = blobPresence },
                 )
             }
             DownloadCircleIfCollapsed(
@@ -230,11 +240,8 @@ private fun DownloadCircleIfCollapsed(
     edge: DockEdge,
     isDragging: Boolean,
 ) {
-    // key forces Compose to completely replace this node when `expanded` changes,
-    // guaranteeing the circle disappears instantly (no stale node, no animation).
-    androidx.compose.runtime.key(expanded) {
-        if (!expanded) {
-            DownloadProgressCircle(
+    if (!expanded) {
+        DownloadProgressCircle(
                 summary = summary,
                 badgeAlignment =
                     if (edge == DockEdge.RIGHT) Alignment.TopStart else Alignment.TopEnd,
@@ -245,7 +252,6 @@ private fun DownloadCircleIfCollapsed(
                 modifier = Modifier.size(Dimens.gooCircleSize),
             )
         }
-    }
 }
 
 // Suspends until BOTH axes finished, so goo starts only after the widget really touched the edge.
