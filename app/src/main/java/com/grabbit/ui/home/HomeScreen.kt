@@ -63,7 +63,7 @@ fun HomeScreen(
                 ),
             verticalArrangement = Arrangement.spacedBy(Dimens.sm),
         ) {
-            homeMediaContent(state, viewModel)
+            homeMediaContent(state, settings, viewModel)
         }
 
         UrlCard(

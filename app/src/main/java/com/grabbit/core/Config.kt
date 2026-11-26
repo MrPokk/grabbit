@@ -31,6 +31,8 @@ object Defaults {
     const val VIDEO_HEIGHT = 1080
     const val VIDEO_HEIGHT_720 = 720
     const val VIDEO_HEIGHT_480 = 480
+    const val VIDEO_CONTAINER = "mp4"
+    const val AUDIO_FORMAT = "mp3"
     const val CONCURRENT_DOWNLOADS = 2
 }
 

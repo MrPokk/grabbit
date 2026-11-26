@@ -31,12 +31,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.grabbit.R
-import com.grabbit.core.Defaults
 import com.grabbit.core.UiValues
 import com.grabbit.data.download.DownloadOptions
 import com.grabbit.data.download.MediaType
 import com.grabbit.data.settings.AppSettings
+import com.grabbit.data.settings.toDownloadOptions
 import com.grabbit.data.ytdlp.FetchedMedia
+import com.grabbit.data.ytdlp.availableHeights
 import com.grabbit.ui.theme.Dimens
 
 /** Bottom sheet with format, quality and extra options for the current media. */
@@ -49,32 +50,12 @@ fun FormatSheet(
     onConfirm: (DownloadOptions) -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val heights =
-        (media as? FetchedMedia.Single)
-            ?.info
-            ?.videoHeights
-            ?.takeIf { it.isNotEmpty() }
-            ?: UiValues.FALLBACK_HEIGHTS
+    val heights = media.availableHeights()
+    val initial = defaults.toDownloadOptions(MediaType.VIDEO, heights)
 
-    var mediaType by remember { mutableStateOf(MediaType.VIDEO) }
-    var height by remember {
-        mutableStateOf(heights.firstOrNull { it <= defaults.defaultVideoHeight } ?: heights.first())
-    }
-    var container by remember {
-        mutableStateOf(defaults.defaultVideoContainer.takeIf { it in UiValues.CONTAINERS } ?: "mp4")
-    }
-    var audioFormat by remember {
-        mutableStateOf(defaults.defaultAudioFormat.takeIf { it in UiValues.AUDIO_FORMATS } ?: "mp3")
-    }
-    var bitrate by remember {
-        mutableStateOf(
-            defaults.defaultAudioBitrate.takeIf { it in UiValues.BITRATES } ?: Defaults.AUDIO_BITRATE_KBPS,
-        )
-    }
-    var embedThumbnail by remember { mutableStateOf(defaults.embedThumbnail) }
-    var embedMetadata by remember { mutableStateOf(defaults.embedMetadata) }
-    var subtitles by remember { mutableStateOf(defaults.subtitles) }
-    var sponsorBlock by remember { mutableStateOf(defaults.sponsorBlock) }
+    var options by remember { mutableStateOf(initial) }
+    var mediaType by remember { mutableStateOf(initial.mediaType) }
+    var videoHeight by remember { mutableStateOf(initial.maxHeight) }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
@@ -115,8 +96,8 @@ fun FormatSheet(
                 ) {
                     heights.forEach { option ->
                         FilterChip(
-                            selected = height == option,
-                            onClick = { height = option },
+                            selected = videoHeight == option,
+                            onClick = { videoHeight = option },
                             label = { Text("${option}p") },
                         )
                     }
@@ -125,8 +106,8 @@ fun FormatSheet(
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.xs)) {
                     UiValues.CONTAINERS.forEach { option ->
                         FilterChip(
-                            selected = container == option,
-                            onClick = { container = option },
+                            selected = options.container == option,
+                            onClick = { options = options.copy(container = option) },
                             label = { Text(option.uppercase()) },
                         )
                     }
@@ -136,8 +117,8 @@ fun FormatSheet(
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.xs)) {
                     UiValues.AUDIO_FORMATS.forEach { option ->
                         FilterChip(
-                            selected = audioFormat == option,
-                            onClick = { audioFormat = option },
+                            selected = options.audioFormat == option,
+                            onClick = { options = options.copy(audioFormat = option) },
                             label = { Text(option.uppercase()) },
                         )
                     }
@@ -146,8 +127,8 @@ fun FormatSheet(
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.xs)) {
                     UiValues.BITRATES.forEach { option ->
                         FilterChip(
-                            selected = bitrate == option,
-                            onClick = { bitrate = option },
+                            selected = options.audioBitrate == option,
+                            onClick = { options = options.copy(audioBitrate = option) },
                             label = { Text(stringResource(R.string.bitrate_kbps, option)) },
                         )
                     }
@@ -156,25 +137,30 @@ fun FormatSheet(
 
             HorizontalDivider(Modifier.padding(vertical = Dimens.xxs))
             Label(stringResource(R.string.label_extras))
-            ToggleRow(stringResource(R.string.extra_thumbnail), embedThumbnail) { embedThumbnail = it }
-            ToggleRow(stringResource(R.string.extra_metadata), embedMetadata) { embedMetadata = it }
-            ToggleRow(stringResource(R.string.extra_subtitles), subtitles) { subtitles = it }
-            ToggleRow(stringResource(R.string.extra_sponsorblock), sponsorBlock) { sponsorBlock = it }
+            ToggleRow(
+                stringResource(R.string.extra_thumbnail),
+                options.embedThumbnail,
+            ) { options = options.copy(embedThumbnail = it) }
+            ToggleRow(
+                stringResource(R.string.extra_metadata),
+                options.embedMetadata,
+            ) { options = options.copy(embedMetadata = it) }
+            ToggleRow(
+                stringResource(R.string.extra_subtitles),
+                options.subtitles,
+            ) { options = options.copy(subtitles = it) }
+            ToggleRow(
+                stringResource(R.string.extra_sponsorblock),
+                options.sponsorBlock,
+            ) { options = options.copy(sponsorBlock = it) }
 
             Spacer(Modifier.height(Dimens.xs))
             Button(
                 onClick = {
                     onConfirm(
-                        DownloadOptions(
+                        options.copy(
                             mediaType = mediaType,
-                            maxHeight = if (mediaType == MediaType.VIDEO) height else 0,
-                            container = container,
-                            audioFormat = audioFormat,
-                            audioBitrate = bitrate,
-                            embedThumbnail = embedThumbnail,
-                            embedMetadata = embedMetadata,
-                            subtitles = subtitles,
-                            sponsorBlock = sponsorBlock,
+                            maxHeight = if (mediaType == MediaType.VIDEO) videoHeight else 0,
                         ),
                     )
                 },

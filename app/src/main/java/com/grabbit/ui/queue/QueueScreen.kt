@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.DownloadDone
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -21,14 +22,23 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.grabbit.R
+import com.grabbit.core.MimeTypes
+import com.grabbit.data.download.DownloadTask
+import com.grabbit.data.download.MediaType
 import com.grabbit.ui.components.EmptyState
+import com.grabbit.ui.components.openSavedFile
+import com.grabbit.ui.components.shareSavedFile
 import com.grabbit.ui.theme.Dimens
 
 /** Queue screen with active downloads, task actions and quick access to settings. */
@@ -43,6 +53,8 @@ fun QueueScreen(
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     val activeCount = tasks.count { it.status.isActive }
+    val context = LocalContext.current
+    var pendingDelete by remember { mutableStateOf<DownloadTask?>(null) }
 
     Column(Modifier.fillMaxSize()) {
         TopAppBar(
@@ -107,11 +119,24 @@ fun QueueScreen(
                 items(tasks, key = { it.id }) { task ->
                     TaskCard(
                         task = task,
-                        onPause = { viewModel.pause(task.id) },
-                        onResume = { viewModel.resume(task.id) },
-                        onCancel = { viewModel.cancel(task.id) },
-                        onRetry = { viewModel.retry(task.id) },
-                        onRemove = { viewModel.remove(task.id) },
+                        callbacks =
+                            TaskCallbacks(
+                                onPause = { viewModel.pause(task.id) },
+                                onResume = { viewModel.resume(task.id) },
+                                onCancel = { viewModel.cancel(task.id) },
+                                onRetry = { viewModel.retry(task.id) },
+                                onRemove = { viewModel.remove(task.id) },
+                                onOpen = {
+                                    task.savedUri?.let { uri -> openSavedFile(context, uri, task.mimeType()) }
+                                },
+                                onShare = {
+                                    task.savedUri?.let { uri ->
+                                        shareSavedFile(context, uri, task.fileName, task.mimeType())
+                                    }
+                                },
+                                onRedownload = { viewModel.downloadAgain(task) },
+                                onDelete = { pendingDelete = task },
+                            ),
                     )
                 }
                 item(key = "settings") {
@@ -122,4 +147,34 @@ fun QueueScreen(
             }
         }
     }
+
+    pendingDelete?.let { task ->
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = { Text(stringResource(R.string.delete_confirm_title)) },
+            text = { Text(stringResource(R.string.delete_confirm_body)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.remove(task.id)
+                        pendingDelete = null
+                    },
+                ) { Text(stringResource(R.string.action_remove_record)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDelete = null }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            },
+        )
+    }
+}
+
+private fun DownloadTask.mimeType(): String {
+    val extension =
+        fileName
+            ?.substringAfterLast('.', "")
+            ?.takeIf { it.isNotEmpty() }
+            ?: if (options.mediaType == MediaType.AUDIO) options.audioFormat else options.container
+    return MimeTypes.forExt(extension)
 }

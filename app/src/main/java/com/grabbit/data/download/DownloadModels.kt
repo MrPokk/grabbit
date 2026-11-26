@@ -47,8 +47,8 @@ data class DownloadOptions(
     val mediaType: MediaType = MediaType.VIDEO,
     /** 0 means "best available". */
     val maxHeight: Int = 0,
-    val container: String = "mp4",
-    val audioFormat: String = "mp3",
+    val container: String = Defaults.VIDEO_CONTAINER,
+    val audioFormat: String = Defaults.AUDIO_FORMAT,
     val audioBitrate: Int = Defaults.AUDIO_BITRATE_KBPS,
     val convertTo: ConvertFormat? = null,
     val embedThumbnail: Boolean = true,

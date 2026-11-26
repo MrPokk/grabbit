@@ -36,9 +36,12 @@ import com.grabbit.core.Formatters
 import com.grabbit.core.Limits
 import com.grabbit.core.Links
 import com.grabbit.core.UiValues
+import com.grabbit.data.download.MediaType
+import com.grabbit.data.settings.AppSettings
 import com.grabbit.data.ytdlp.FetchedMedia
 import com.grabbit.ui.components.EmptyState
 import com.grabbit.ui.components.ErrorCard
+import com.grabbit.ui.components.QuickDownloadControls
 import com.grabbit.ui.components.Thumbnail
 import com.grabbit.ui.theme.Dimens
 
@@ -46,6 +49,7 @@ private val CollectionThumbnailWidth = 96.dp
 
 internal fun LazyListScope.homeMediaContent(
     state: HomeViewModel.UiState,
+    settings: AppSettings,
     viewModel: HomeViewModel,
 ) {
     if (state.loading) {
@@ -78,7 +82,13 @@ internal fun LazyListScope.homeMediaContent(
         is FetchedMedia.Single -> {
             item(key = "preview") {
                 Column(verticalArrangement = Arrangement.spacedBy(Dimens.xs)) {
-                    PreviewCard(media = media, onDownload = viewModel::openSheet)
+                    PreviewCard(
+                        media = media,
+                        settings = settings,
+                        onChooseFormat = viewModel::openSheet,
+                        onQuickDownload = viewModel::quickDownload,
+                        onMediaTypeChange = viewModel::setQuickMediaType,
+                    )
                     if (Links.isRadioPlaylist(state.urlForPlaylistToggle)) {
                         MixToggleCard(
                             checked = state.loadAsMix,
@@ -124,19 +134,27 @@ internal fun LazyListScope.homeMediaContent(
                 )
             }
             item(key = "download") {
-                Button(
-                    onClick = viewModel::openSheet,
-                    enabled = state.selectedIndices.isNotEmpty(),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Icon(Icons.Rounded.Download, contentDescription = null)
-                    Spacer(Modifier.width(Dimens.xs))
-                    Text(
-                        stringResource(
-                            R.string.playlist_download_selected,
-                            state.selectedIndices.size,
-                        ),
+                Column(verticalArrangement = Arrangement.spacedBy(Dimens.xs)) {
+                    QuickDownloadControls(
+                        mediaType = settings.quickMediaType,
+                        enabled = state.selectedIndices.isNotEmpty(),
+                        onMediaTypeChange = viewModel::setQuickMediaType,
+                        onQuickDownload = viewModel::quickDownload,
                     )
+                    Button(
+                        onClick = viewModel::openSheet,
+                        enabled = state.selectedIndices.isNotEmpty(),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Icon(Icons.Rounded.Download, contentDescription = null)
+                        Spacer(Modifier.width(Dimens.xs))
+                        Text(
+                            stringResource(
+                                R.string.playlist_download_selected,
+                                state.selectedIndices.size,
+                            ),
+                        )
+                    }
                 }
             }
         }
@@ -159,7 +177,10 @@ internal fun LazyListScope.homeMediaContent(
 @Composable
 internal fun PreviewCard(
     media: FetchedMedia.Single,
-    onDownload: () -> Unit,
+    settings: AppSettings,
+    onChooseFormat: () -> Unit,
+    onQuickDownload: () -> Unit,
+    onMediaTypeChange: (MediaType) -> Unit,
 ) {
     Card(Modifier.fillMaxWidth()) {
         Column {
@@ -193,7 +214,13 @@ internal fun PreviewCard(
                         ),
                     )
                 }
-                Button(onClick = onDownload, modifier = Modifier.fillMaxWidth()) {
+                QuickDownloadControls(
+                    mediaType = settings.quickMediaType,
+                    enabled = true,
+                    onMediaTypeChange = onMediaTypeChange,
+                    onQuickDownload = onQuickDownload,
+                )
+                OutlinedButton(onClick = onChooseFormat, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Rounded.Download, contentDescription = null)
                     Spacer(Modifier.width(Dimens.xs))
                     Text(stringResource(R.string.action_choose_format))

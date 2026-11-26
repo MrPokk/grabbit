@@ -13,11 +13,14 @@ import com.grabbit.core.suspendRunCatching
 import com.grabbit.data.download.DownloadOptions
 import com.grabbit.data.download.DownloadRepository
 import com.grabbit.data.download.DownloadRequest
+import com.grabbit.data.download.MediaType
 import com.grabbit.data.settings.AppSettings
 import com.grabbit.data.settings.SettingsRepository
+import com.grabbit.data.settings.toDownloadOptions
 import com.grabbit.data.ytdlp.FetchedMedia
 import com.grabbit.data.ytdlp.InfoException
 import com.grabbit.data.ytdlp.YtDlpEngine
+import com.grabbit.data.ytdlp.availableHeights
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
@@ -40,7 +43,7 @@ class HomeViewModel
         @ApplicationContext private val context: Context,
         private val ytDlp: YtDlpEngine,
         private val downloads: DownloadRepository,
-        settingsRepository: SettingsRepository,
+        private val settingsRepository: SettingsRepository,
     ) : ViewModel() {
         /** Everything the home screen needs to render its current state. */
         data class UiState(
@@ -187,6 +190,18 @@ class HomeViewModel
         /** Closes the download options sheet. */
         fun dismissSheet() {
             _state.update { it.copy(showSheet = false) }
+        }
+
+        /** Stores the media type used by quick download. */
+        fun setQuickMediaType(type: MediaType) {
+            viewModelScope.launch { settingsRepository.setQuickMediaType(type) }
+        }
+
+        /** Enqueues a download with the current defaults without opening the sheet. */
+        fun quickDownload() {
+            val media = _state.value.media ?: return
+            val settings = settings.value
+            startDownload(settings.toDownloadOptions(settings.quickMediaType, media.availableHeights()))
         }
 
         /** Enqueues the selected items. */

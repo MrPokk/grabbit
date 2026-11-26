@@ -1,6 +1,7 @@
 package com.grabbit.data.ytdlp
 
-/** What a link resolved to: a single media item or a playlist / channel. */
+import com.grabbit.core.UiValues
+
 sealed interface FetchedMedia {
     val title: String
     val uploader: String?
@@ -79,3 +80,11 @@ data class PlaylistItem(
     val durationSeconds: Long,
     val thumbnail: String?,
 )
+
+/** Heights offered for a download: the media's own heights, or the shared fallback list. */
+fun FetchedMedia.availableHeights(): List<Int> =
+    (this as? FetchedMedia.Single)
+        ?.info
+        ?.videoHeights
+        ?.takeIf { it.isNotEmpty() }
+        ?: UiValues.FALLBACK_HEIGHTS

@@ -12,6 +12,7 @@
     <string name="action_open_settings">Открыть настройки</string>
     <string name="action_paste">Вставить</string>
     <string name="action_pause">Пауза</string>
+    <string name="action_quick_download">Быстрая загрузка</string>
     <string name="action_redownload">Скачать снова</string>
     <string name="action_remove">Убрать</string>
     <string name="action_remove_record">Убрать</string>

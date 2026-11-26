@@ -12,6 +12,7 @@
     <string name="action_open_settings">Open settings</string>
     <string name="action_paste">Paste</string>
     <string name="action_pause">Pause</string>
+    <string name="action_quick_download">Quick download</string>
     <string name="action_redownload">Download again</string>
     <string name="action_remove">Remove</string>
     <string name="action_remove_record">Remove</string>

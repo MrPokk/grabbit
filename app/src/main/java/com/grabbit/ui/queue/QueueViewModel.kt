@@ -49,6 +49,10 @@ class QueueViewModel
             downloads.resume(id)
         }
 
+        fun downloadAgain(task: DownloadTask) {
+            downloads.enqueue(listOf(task.request))
+        }
+
         fun clearFinished() {
             engine.clearFinished()
         }

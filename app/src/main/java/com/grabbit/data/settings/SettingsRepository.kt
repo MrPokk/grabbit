@@ -16,6 +16,7 @@ import com.grabbit.core.Defaults
 import com.grabbit.core.Languages
 import com.grabbit.core.Limits
 import com.grabbit.core.Storage
+import com.grabbit.data.download.MediaType
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -35,9 +36,10 @@ data class AppSettings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val dynamicColor: Boolean = true,
     val defaultVideoHeight: Int = Defaults.VIDEO_HEIGHT,
-    val defaultVideoContainer: String = "mp4",
-    val defaultAudioFormat: String = "mp3",
+    val defaultVideoContainer: String = Defaults.VIDEO_CONTAINER,
+    val defaultAudioFormat: String = Defaults.AUDIO_FORMAT,
     val defaultAudioBitrate: Int = Defaults.AUDIO_BITRATE_KBPS,
+    val quickMediaType: MediaType = MediaType.VIDEO,
     val concurrentDownloads: Int = Defaults.CONCURRENT_DOWNLOADS,
     val embedThumbnail: Boolean = true,
     val embedMetadata: Boolean = true,
@@ -73,6 +75,7 @@ class SettingsRepository
             val VIDEO_CONTAINER = stringPreferencesKey("video_container")
             val AUDIO_FORMAT = stringPreferencesKey("audio_format")
             val AUDIO_BITRATE = intPreferencesKey("audio_bitrate")
+            val QUICK_MEDIA_TYPE = stringPreferencesKey("quick_media_type")
             val CONCURRENT = intPreferencesKey("concurrent")
             val EMBED_THUMBNAIL = booleanPreferencesKey("embed_thumbnail")
             val EMBED_METADATA = booleanPreferencesKey("embed_metadata")
@@ -109,6 +112,10 @@ class SettingsRepository
                         defaultVideoContainer = prefs[Keys.VIDEO_CONTAINER] ?: defaults.defaultVideoContainer,
                         defaultAudioFormat = prefs[Keys.AUDIO_FORMAT] ?: defaults.defaultAudioFormat,
                         defaultAudioBitrate = prefs[Keys.AUDIO_BITRATE] ?: defaults.defaultAudioBitrate,
+                        quickMediaType =
+                            prefs[Keys.QUICK_MEDIA_TYPE]
+                                ?.let { name -> MediaType.entries.firstOrNull { it.name == name } }
+                                ?: defaults.quickMediaType,
                         concurrentDownloads =
                             (prefs[Keys.CONCURRENT] ?: defaults.concurrentDownloads)
                                 .coerceIn(Limits.MIN_CONCURRENT_DOWNLOADS, Limits.MAX_CONCURRENT_DOWNLOADS),
@@ -147,6 +154,9 @@ class SettingsRepository
 
         /** Stores the default audio bitrate. */
         suspend fun setDefaultAudioBitrate(bitrate: Int) = edit { it[Keys.AUDIO_BITRATE] = bitrate }
+
+        /** Stores the media type used by quick download. */
+        suspend fun setQuickMediaType(type: MediaType) = edit { it[Keys.QUICK_MEDIA_TYPE] = type.name }
 
         /** Stores the concurrency limit, clamped to the supported range. */
         suspend fun setConcurrentDownloads(count: Int) =

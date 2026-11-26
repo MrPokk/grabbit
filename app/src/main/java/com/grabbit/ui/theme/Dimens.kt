@@ -16,4 +16,5 @@ object Dimens {
     val iconSm: Dp = 18.dp
     val iconMd: Dp = 28.dp
     val iconLg: Dp = 56.dp
+    val iconButton: Dp = 48.dp
 }
