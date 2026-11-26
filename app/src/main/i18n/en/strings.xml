@@ -20,6 +20,7 @@
     <string name="action_resume">Resume</string>
     <string name="action_retry">Retry</string>
     <string name="action_save">Save</string>
+    <string name="action_search">Search</string>
     <string name="action_share">Share</string>
     <string name="action_start_download">Start download</string>
     <string name="action_update_ytdlp">Update yt-dlp</string>
@@ -27,6 +28,9 @@
     <string name="bitrate_kbps">%1$d kbps</string>
     <string name="cd_clear">Clear link</string>
     <string name="cd_more">More options</string>
+    <string name="cd_open_result">Open %1$s</string>
+    <string name="cd_platform_activate">Search on %1$s</string>
+    <string name="cd_platform_deactivate">Stop searching on %1$s</string>
     <plurals name="cd_queue">
         <item quantity="one">Open queue, %1$d download</item>
         <item quantity="other">Open queue, %1$d downloads</item>
@@ -66,6 +70,7 @@
     <string name="error_outdated">yt-dlp may be out of date. Update it in Settings and try again.</string>
     <string name="error_private">This video is private. Import cookies in Settings to access it.</string>
     <string name="error_removed">The video was removed or the link is wrong.</string>
+    <string name="error_search_unsupported">Search is not available for this platform yet.</string>
     <string name="error_storage">Not enough space, or the folder is not writable.</string>
     <string name="error_title">Something went wrong</string>
     <string name="error_unavailable">This video is unavailable.</string>
@@ -114,6 +119,9 @@
     <string name="notif_current_file_progress">%1$d of %2$d</string>
     <string name="notif_overall_progress">Overall progress: %1$d%%</string>
     <string name="option_best">Best</string>
+    <string name="platform_instagram" translatable="false">Instagram</string>
+    <string name="platform_tiktok" translatable="false">TikTok</string>
+    <string name="platform_youtube" translatable="false">YouTube</string>
     <string name="playlist_deselect_all">Deselect all</string>
     <string name="playlist_download_selected">Download selected (%1$d)</string>
     <plurals name="playlist_items">
@@ -134,6 +142,14 @@
     <string name="queue_file_info">%1$s · %2$s</string>
     <string name="queue_progress_percent">%1$d%%</string>
     <string name="queue_title">Queue</string>
+    <string name="search_empty_body">Try a different query.</string>
+    <string name="search_empty_title">Nothing found</string>
+    <string name="search_hint">Search %1$s</string>
+    <string name="search_prompt_body">Type a query to find videos on %1$s.</string>
+    <string name="search_prompt_title">Search %1$s</string>
+    <string name="search_result_meta">%1$s · %2$s</string>
+    <string name="search_results_title">Results</string>
+    <string name="searching">Searching…</string>
     <string name="settings_check_updates">Check for updates automatically</string>
     <string name="settings_concurrent">Simultaneous downloads</string>
     <string name="settings_concurrent_value">%1$d at a time</string>

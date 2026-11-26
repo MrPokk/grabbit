@@ -20,6 +20,7 @@
     <string name="action_resume">Продолжить</string>
     <string name="action_retry">Повторить</string>
     <string name="action_save">Сохранить</string>
+    <string name="action_search">Найти</string>
     <string name="action_share">Поделиться</string>
     <string name="action_start_download">Начать загрузку</string>
     <string name="action_update_ytdlp">Обновить yt-dlp</string>
@@ -27,6 +28,9 @@
     <string name="bitrate_kbps">%1$d кбит/с</string>
     <string name="cd_clear">Очистить ссылку</string>
     <string name="cd_more">Ещё</string>
+    <string name="cd_open_result">Открыть %1$s</string>
+    <string name="cd_platform_activate">Искать в %1$s</string>
+    <string name="cd_platform_deactivate">Прекратить поиск в %1$s</string>
     <plurals name="cd_queue">
         <item quantity="one">Открыть очередь, %1$d загрузка</item>
         <item quantity="few">Открыть очередь, %1$d загрузки</item>
@@ -68,6 +72,7 @@
     <string name="error_outdated">Возможно, yt-dlp устарел. Обновите его в настройках и повторите.</string>
     <string name="error_private">Это приватное видео. Импортируйте cookies в настройках.</string>
     <string name="error_removed">Видео удалено или ссылка неверна.</string>
+    <string name="error_search_unsupported">Поиск для этой платформы пока недоступен.</string>
     <string name="error_storage">Не хватает места или папка недоступна для записи.</string>
     <string name="error_title">Что-то пошло не так</string>
     <string name="error_unavailable">Видео недоступно.</string>
@@ -122,6 +127,9 @@
     <string name="notif_current_file_progress">%1$d из %2$d</string>
     <string name="notif_overall_progress">Общий прогресс: %1$d%%</string>
     <string name="option_best">Лучшее</string>
+    <string name="platform_instagram" translatable="false">Instagram</string>
+    <string name="platform_tiktok" translatable="false">TikTok</string>
+    <string name="platform_youtube" translatable="false">YouTube</string>
     <string name="playlist_deselect_all">Снять выбор</string>
     <string name="playlist_download_selected">Скачать выбранные (%1$d)</string>
     <plurals name="playlist_items">
@@ -148,6 +156,14 @@
     <string name="queue_file_info">%1$s · %2$s</string>
     <string name="queue_progress_percent">%1$d%%</string>
     <string name="queue_title">Очередь</string>
+    <string name="search_empty_body">Попробуйте другой запрос.</string>
+    <string name="search_empty_title">Ничего не найдено</string>
+    <string name="search_hint">Поиск в %1$s</string>
+    <string name="search_prompt_body">Введите запрос, чтобы найти видео в %1$s.</string>
+    <string name="search_prompt_title">Поиск в %1$s</string>
+    <string name="search_result_meta">%1$s · %2$s</string>
+    <string name="search_results_title">Результаты</string>
+    <string name="searching">Поиск…</string>
     <string name="settings_check_updates">Автопроверка обновлений</string>
     <string name="settings_concurrent">Одновременных загрузок</string>
     <string name="settings_concurrent_value">%1$d одновременно</string>

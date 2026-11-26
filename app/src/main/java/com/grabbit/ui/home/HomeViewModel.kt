@@ -8,12 +8,16 @@ import com.grabbit.R
 import com.grabbit.core.AppError
 import com.grabbit.core.AppLog
 import com.grabbit.core.Links
+import com.grabbit.core.MediaPlatform
 import com.grabbit.core.stateInUi
 import com.grabbit.core.suspendRunCatching
 import com.grabbit.data.download.DownloadOptions
 import com.grabbit.data.download.DownloadRepository
 import com.grabbit.data.download.DownloadRequest
 import com.grabbit.data.download.MediaType
+import com.grabbit.data.search.MediaSearchProvider
+import com.grabbit.data.search.MediaSearchResult
+import com.grabbit.data.search.SearchException
 import com.grabbit.data.settings.AppSettings
 import com.grabbit.data.settings.SettingsRepository
 import com.grabbit.data.settings.toDownloadOptions
@@ -44,6 +48,7 @@ class HomeViewModel
         private val ytDlp: YtDlpEngine,
         private val downloads: DownloadRepository,
         private val settingsRepository: SettingsRepository,
+        private val searchProvider: MediaSearchProvider,
     ) : ViewModel() {
         /** Everything the home screen needs to render its current state. */
         data class UiState(
@@ -57,6 +62,10 @@ class HomeViewModel
             val showSheet: Boolean = false,
             val clipboardHint: Boolean = false,
             val loadAsMix: Boolean = false,
+            val selectedPlatform: MediaPlatform? = null,
+            val searching: Boolean = false,
+            val searchResults: List<MediaSearchResult> = emptyList(),
+            val searchError: AppError? = null,
         )
 
         private val _state = MutableStateFlow(UiState())
@@ -64,6 +73,8 @@ class HomeViewModel
 
         private var fetchJob: Job? = null
         private var fetchProcessId: String? = null
+        private var searchJob: Job? = null
+        private var searchGeneration = 0
 
         val settings: StateFlow<AppSettings> =
             settingsRepository.settings
@@ -89,42 +100,144 @@ class HomeViewModel
         /** Handles a link sent by MainActivity and immediately fetches its metadata. */
         fun acceptSharedLink(link: String) {
             val clean = Links.extract(link)?.let(Links::normalize) ?: return
-            _state.update { it.copy(url = clean, error = null, media = null) }
+            _state.update {
+                it.copy(
+                    url = clean,
+                    selectedPlatform = null,
+                    searchResults = emptyList(),
+                    searchError = null,
+                    error = null,
+                    media = null,
+                )
+            }
             fetch()
         }
 
         /** Clears the URL, result and any in-flight extraction. */
         fun clear() {
-            fetchJob?.cancel()
-            fetchProcessId?.let(ytDlp::cancelFetch)
-            fetchProcessId = null
+            cancelWork()
+            val platform = _state.value.selectedPlatform
             _state.update {
                 UiState(
                     url = "",
                     clipboardHint = false,
+                    selectedPlatform = platform,
                 )
             }
         }
 
+        /** Toggles a platform and moves the active one between the selector and the field. */
+        fun onPlatformClick(platform: MediaPlatform) {
+            cancelWork()
+            val current = _state.value.selectedPlatform
+            _state.update {
+                if (current == platform) {
+                    it.copy(
+                        selectedPlatform = null,
+                        searchResults = emptyList(),
+                        searchError = null,
+                        searching = false,
+                    )
+                } else {
+                    it.copy(
+                        selectedPlatform = platform,
+                        searchResults = emptyList(),
+                        searchError = null,
+                        searching = false,
+                        media = null,
+                        error = null,
+                        selectedIndices = emptySet(),
+                        showSheet = false,
+                    )
+                }
+            }
+        }
+
+        /** Runs the URL fetch or the platform search, depending on the active mode. */
+        fun submit() {
+            if (_state.value.selectedPlatform == null) fetch() else search()
+        }
+
+        /** Searches the selected platform for the current query. */
+        fun search() {
+            val platform = _state.value.selectedPlatform ?: return
+            val query = _state.value.url.trim()
+            if (query.isEmpty()) return
+            cancelWork()
+            val generation = ++searchGeneration
+            _state.update {
+                it.copy(
+                    searching = true,
+                    searchError = null,
+                    searchResults = emptyList(),
+                    error = null,
+                    media = null,
+                )
+            }
+            searchJob =
+                viewModelScope.launch {
+                    try {
+                        val results = searchProvider.search(platform, query)
+                        if (searchGeneration != generation) return@launch
+                        _state.update {
+                            if (it.selectedPlatform == platform && it.url.trim() == query) {
+                                it.copy(searchResults = results)
+                            } else {
+                                it
+                            }
+                        }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: SearchException) {
+                        AppLog.e(TAG, "search failed", e)
+                        if (searchGeneration == generation) {
+                            _state.update { it.copy(searchError = e.error) }
+                        }
+                    } finally {
+                        if (searchGeneration == generation) {
+                            _state.update { it.copy(searching = false) }
+                        }
+                    }
+                }
+        }
+
         /** Fetches metadata for the current URL. */
         fun fetch() {
-            fetchJob?.cancel()
-            fetchProcessId?.let(ytDlp::cancelFetch)
+            cancelWork()
             val url = Links.extract(currentUrl())
             if (url == null) {
                 _state.update { it.copy(error = AppError(R.string.error_invalid_url), loading = false) }
                 return
             }
+            fetchUrl(url)
+        }
+
+        /** Opens a search result through the normal metadata pipeline. */
+        fun openSearchResult(result: MediaSearchResult) {
+            _state.update { it.copy(url = result.url, error = null, media = null, showSheet = false) }
+            fetchUrl(Links.normalize(result.url))
+        }
+
+        private fun fetchUrl(url: String) {
+            cancelWork()
             val processId = UUID.randomUUID().toString()
             fetchProcessId = processId
             _state.update {
-                it.copy(url = url, urlForPlaylistToggle = url, loading = true, error = null, media = null)
+                it.copy(
+                    url = url,
+                    urlForPlaylistToggle = url,
+                    loading = true,
+                    error = null,
+                    media = null,
+                    searchError = null,
+                )
             }
             fetchJob =
                 viewModelScope.launch {
                     try {
                         val loadAsMix = _state.value.loadAsMix
                         val media = ytDlp.fetch(url, loadAsMix, processId)
+                        if (fetchProcessId != processId) return@launch
                         val selected =
                             (media as? FetchedMedia.Collection)
                                 ?.items
@@ -136,12 +249,27 @@ class HomeViewModel
                         throw e
                     } catch (e: InfoException) {
                         AppLog.e(TAG, "metadata fetch failed", e)
-                        _state.update { it.copy(error = e.error) }
+                        if (fetchProcessId == processId) {
+                            _state.update { it.copy(error = e.error) }
+                        }
                     } finally {
-                        fetchProcessId = null
-                        _state.update { it.copy(loading = false) }
+                        if (fetchProcessId == processId) {
+                            fetchProcessId = null
+                            _state.update { it.copy(loading = false) }
+                        }
                     }
                 }
+        }
+
+        private fun cancelWork() {
+            fetchJob?.cancel()
+            fetchJob = null
+            fetchProcessId?.let(ytDlp::cancelFetch)
+            fetchProcessId = null
+            searchJob?.cancel()
+            searchJob = null
+            searchGeneration++
+            _state.update { it.copy(loading = false, searching = false) }
         }
 
         /** Toggles a Mix URL between a single video and a bounded playlist, then refetches. */

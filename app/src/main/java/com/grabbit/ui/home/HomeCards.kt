@@ -1,5 +1,7 @@
 package com.grabbit.ui.home
 
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -15,6 +17,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentPaste
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Button
@@ -38,6 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.grabbit.R
 import com.grabbit.core.Formatters
+import com.grabbit.core.MediaPlatform
 import com.grabbit.core.UiValues
 import com.grabbit.data.ytdlp.PlaylistItem
 import com.grabbit.ui.components.Thumbnail
@@ -45,92 +49,141 @@ import com.grabbit.ui.theme.Dimens
 
 private val PlaylistThumbnailWidth = 72.dp
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 internal fun UrlCard(
-    url: String,
-    loading: Boolean,
-    clipboardHint: Boolean,
+    state: HomeViewModel.UiState,
     onUrlChange: (String) -> Unit,
     onClear: () -> Unit,
     onPaste: () -> Unit,
-    onFetch: () -> Unit,
+    onPlatformClick: (MediaPlatform) -> Unit,
+    onSubmit: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val url = state.url
+    val loading = state.loading
+    val searching = state.searching
+    val clipboardHint = state.clipboardHint
+    val selectedPlatform = state.selectedPlatform
     val noIndicator = MaterialTheme.colorScheme.onSurface.copy(alpha = 0f)
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(Dimens.sm),
-    ) {
-        TextField(
-            value = url,
-            onValueChange = onUrlChange,
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.extraLarge,
-            colors =
-                TextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    focusedIndicatorColor = noIndicator,
-                    unfocusedIndicatorColor = noIndicator,
-                    disabledIndicatorColor = noIndicator,
-                    errorIndicatorColor = noIndicator,
-                ),
-            label = { Text(stringResource(R.string.url_hint)) },
-            singleLine = true,
-            leadingIcon = { Icon(Icons.Rounded.Link, contentDescription = null) },
-            trailingIcon = {
-                if (url.isNotEmpty()) {
-                    IconButton(onClick = onClear) {
-                        Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.cd_clear))
-                    }
-                }
-            },
-            supportingText =
-                if (clipboardHint) {
-                    { Text(stringResource(R.string.clipboard_hint)) }
-                } else {
-                    null
-                },
-            keyboardOptions =
-                KeyboardOptions(
-                    keyboardType = KeyboardType.Uri,
-                    imeAction = ImeAction.Go,
-                ),
-            keyboardActions = KeyboardActions(onGo = { onFetch() }),
-        )
+    val searchMode = selectedPlatform != null
+    val platformName = selectedPlatform?.let { stringResource(it.labelRes) }
+    val busy = loading || searching
+    SharedTransitionLayout(modifier = modifier) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(Dimens.sm),
+        ) {
+            PlatformSelectorRow(
+                sharedScope = this@SharedTransitionLayout,
+                selected = selectedPlatform,
+                onPlatformClick = onPlatformClick,
+                modifier = Modifier.padding(start = Dimens.xxs),
+            )
 
-        Row(horizontalArrangement = Arrangement.spacedBy(Dimens.xs)) {
-            OutlinedButton(
-                onClick = onPaste,
+            TextField(
+                value = url,
+                onValueChange = onUrlChange,
+                modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.extraLarge,
-                modifier = Modifier.weight(1f),
-            ) {
-                Icon(
-                    Icons.Rounded.ContentPaste,
-                    contentDescription = null,
-                    modifier = Modifier.size(Dimens.iconSm),
-                )
-                Spacer(Modifier.width(Dimens.xxs))
-                Text(stringResource(R.string.action_paste))
-            }
-            Button(
-                onClick = onFetch,
-                enabled = url.isNotBlank() && !loading,
-                shape = MaterialTheme.shapes.extraLarge,
-                modifier = Modifier.weight(1f),
-            ) {
-                Icon(
-                    Icons.Rounded.Search,
-                    contentDescription = null,
-                    modifier = Modifier.size(Dimens.iconSm),
-                )
-                Spacer(Modifier.width(Dimens.xxs))
-                Text(
-                    text = stringResource(if (loading) R.string.fetching else R.string.action_fetch),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                colors =
+                    TextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        focusedIndicatorColor = noIndicator,
+                        unfocusedIndicatorColor = noIndicator,
+                        disabledIndicatorColor = noIndicator,
+                        errorIndicatorColor = noIndicator,
+                    ),
+                label = {
+                    Text(
+                        text =
+                            if (platformName != null) {
+                                stringResource(R.string.search_hint, platformName)
+                            } else {
+                                stringResource(R.string.url_hint)
+                            },
+                    )
+                },
+                singleLine = true,
+                leadingIcon = {
+                    Icon(
+                        imageVector = if (searchMode) Icons.Rounded.Search else Icons.Rounded.Link,
+                        contentDescription = null,
+                    )
+                },
+                trailingIcon = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (url.isNotEmpty()) {
+                            IconButton(onClick = onClear) {
+                                Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.cd_clear))
+                            }
+                        }
+                        PlatformTrailingIcons(
+                            sharedScope = this@SharedTransitionLayout,
+                            selected = selectedPlatform,
+                            onPlatformClick = onPlatformClick,
+                        )
+                    }
+                },
+                supportingText =
+                    if (clipboardHint && !searchMode) {
+                        { Text(stringResource(R.string.clipboard_hint)) }
+                    } else {
+                        null
+                    },
+                keyboardOptions =
+                    KeyboardOptions(
+                        keyboardType = if (searchMode) KeyboardType.Text else KeyboardType.Uri,
+                        imeAction = if (searchMode) ImeAction.Search else ImeAction.Go,
+                    ),
+                keyboardActions =
+                    KeyboardActions(
+                        onGo = { onSubmit() },
+                        onSearch = { onSubmit() },
+                    ),
+            )
+
+            Row(horizontalArrangement = Arrangement.spacedBy(Dimens.xs)) {
+                OutlinedButton(
+                    onClick = onPaste,
+                    shape = MaterialTheme.shapes.extraLarge,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Icon(
+                        Icons.Rounded.ContentPaste,
+                        contentDescription = null,
+                        modifier = Modifier.size(Dimens.iconSm),
+                    )
+                    Spacer(Modifier.width(Dimens.xxs))
+                    Text(stringResource(R.string.action_paste))
+                }
+                Button(
+                    onClick = onSubmit,
+                    enabled = url.isNotBlank() && !busy,
+                    shape = MaterialTheme.shapes.extraLarge,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Icon(
+                        imageVector = if (searchMode) Icons.Rounded.Search else Icons.Rounded.Download,
+                        contentDescription = null,
+                        modifier = Modifier.size(Dimens.iconSm),
+                    )
+                    Spacer(Modifier.width(Dimens.xxs))
+                    Text(
+                        text =
+                            stringResource(
+                                when {
+                                    loading -> R.string.fetching
+                                    searching -> R.string.searching
+                                    searchMode -> R.string.action_search
+                                    else -> R.string.action_fetch
+                                },
+                            ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
         }
     }

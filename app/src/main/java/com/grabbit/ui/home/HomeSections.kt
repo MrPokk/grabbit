@@ -46,7 +46,7 @@ import com.grabbit.ui.components.QuickDownloadControls
 import com.grabbit.ui.components.Thumbnail
 import com.grabbit.ui.theme.Dimens
 
-private val CollectionThumbnailWidth = 96.dp
+internal val ListThumbnailWidth = 96.dp
 
 internal fun LazyListScope.homeMediaContent(
     state: HomeViewModel.UiState,
@@ -161,7 +161,7 @@ internal fun LazyListScope.homeMediaContent(
         }
 
         null -> {
-            if (!state.loading && state.error == null) {
+            if (!state.loading && state.error == null && state.selectedPlatform == null) {
                 item(key = "empty") {
                     EmptyState(
                         icon = Icons.Rounded.Movie,
@@ -173,6 +173,12 @@ internal fun LazyListScope.homeMediaContent(
             }
         }
     }
+
+    homeSearchContent(
+        state = state,
+        onOpen = viewModel::openSearchResult,
+        onRetry = viewModel::search,
+    )
 }
 
 @Composable
@@ -239,7 +245,7 @@ internal fun CollectionCard(media: FetchedMedia.Collection) {
                 url = media.thumbnail,
                 modifier =
                     Modifier
-                        .width(CollectionThumbnailWidth)
+                        .width(ListThumbnailWidth)
                         .aspectRatio(UiValues.THUMBNAIL_ASPECT_RATIO),
             )
             Spacer(Modifier.width(Dimens.sm))

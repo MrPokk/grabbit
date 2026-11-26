@@ -71,13 +71,12 @@ fun HomeScreen(
         }
 
         UrlCard(
-            url = state.url,
-            loading = state.loading,
-            clipboardHint = state.clipboardHint,
+            state = state,
             onUrlChange = viewModel::onUrlChange,
             onClear = viewModel::clear,
             onPaste = viewModel::pasteFromClipboard,
-            onFetch = viewModel::fetch,
+            onPlatformClick = viewModel::onPlatformClick,
+            onSubmit = viewModel::submit,
             modifier = Modifier.padding(start = Dimens.md, top = Dimens.xs, end = Dimens.md, bottom = Dimens.lg),
         )
     }
