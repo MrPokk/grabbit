@@ -11,7 +11,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.DownloadDone
-import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -63,14 +62,7 @@ fun QueueScreen(
         TopAppBar(
             title = { Text(stringResource(R.string.queue_title)) },
             navigationIcon = {
-                if (onCollapse != null) {
-                    IconButton(onClick = onCollapse) {
-                        Icon(
-                            Icons.Rounded.ExpandMore,
-                            contentDescription = stringResource(R.string.action_collapse),
-                        )
-                    }
-                } else {
+                if (onCollapse == null) {
                     IconButton(onClick = onBack) {
                         Icon(
                             Icons.AutoMirrored.Rounded.ArrowBack,

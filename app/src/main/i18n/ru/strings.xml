@@ -26,7 +26,6 @@
     <string name="app_name">Grabbit</string>
     <string name="bitrate_kbps">%1$d кбит/с</string>
     <string name="cd_clear">Очистить ссылку</string>
-    <string name="cd_expand_downloads">Развернуть очередь загрузок</string>
     <string name="cd_more">Ещё</string>
     <plurals name="cd_queue">
         <item quantity="one">Открыть очередь, %1$d загрузка</item>

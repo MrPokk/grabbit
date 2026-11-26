@@ -6,10 +6,10 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import androidx.core.content.ContextCompat
 import android.content.res.Resources
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import com.grabbit.MainActivity
 import com.grabbit.R
 import com.grabbit.core.AppLog
@@ -17,7 +17,6 @@ import com.grabbit.core.Formatters
 import com.grabbit.core.Timing
 import com.grabbit.core.UiValues
 import com.grabbit.data.download.DownloadTask
-import com.grabbit.data.download.TaskStatus
 
 private const val TAG = "DownloadNotificationManager"
 
@@ -65,14 +64,18 @@ class DownloadNotificationManager(
     /** Builds (without posting) the notification for [tasks]. Used for the foreground start. */
     fun build(tasks: List<DownloadTask>): Notification {
         val active = tasks.filter { it.status.isActive }
-        return buildNotification(active, buildState(active))
+        return buildNotification(buildState(active))
     }
 
     private fun buildState(active: List<DownloadTask>): NotificationState {
         val transferring = active.filter { it.progress > 0f }
         val indeterminate = transferring.isEmpty()
         val progress =
-            if (indeterminate) 0f else transferring.sumOf { it.progress.coerceIn(0f, 1f).toDouble() }.toFloat() / transferring.size
+            if (indeterminate) {
+                0f
+            } else {
+                transferring.sumOf { it.progress.coerceIn(0f, 1f).toDouble() }.toFloat() / transferring.size
+            }
         val currentFile = transferring.maxByOrNull { it.progress }?.fileName
         return NotificationState(
             activeCount = active.size,
@@ -83,12 +86,13 @@ class DownloadNotificationManager(
         )
     }
 
-    private fun buildNotification(active: List<DownloadTask>, state: NotificationState): Notification {
+    private fun buildNotification(state: NotificationState): Notification {
         val percent = Formatters.percent(state.progress)
         val resources = context.resources
         val contentText =
             resources.getQuantityString(R.plurals.notif_downloading_files, state.activeCount, state.activeCount)
-        return NotificationCompat.Builder(context, CHANNEL_DOWNLOADS)
+        return NotificationCompat
+            .Builder(context, CHANNEL_DOWNLOADS)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(context.getString(R.string.app_name))
             .setContentText(contentText)
@@ -102,14 +106,25 @@ class DownloadNotificationManager(
             .build()
     }
 
-    private fun buildSubText(resources: Resources, state: NotificationState): String {
-        val progressText = resources.getString(R.string.notif_overall_progress, Formatters.percent(state.progress))
+    private fun buildSubText(
+        resources: Resources,
+        state: NotificationState,
+    ): String {
+        val progressText =
+            resources.getString(R.string.notif_overall_progress, Formatters.percent(state.progress))
         return when {
             state.indeterminate -> resources.getString(R.string.notif_text_preparing)
             state.transferringCount == 1 && state.currentFile != null ->
                 "${state.currentFile} · $progressText"
-            else ->
-                "${resources.getString(R.string.notif_current_file_progress, state.transferringCount, state.activeCount)} · $progressText"
+            else -> {
+                val currentFileProgress =
+                    resources.getString(
+                        R.string.notif_current_file_progress,
+                        state.transferringCount,
+                        state.activeCount,
+                    )
+                "$currentFileProgress · $progressText"
+            }
         }
     }
 

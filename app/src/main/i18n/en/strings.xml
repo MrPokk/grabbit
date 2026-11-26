@@ -26,7 +26,6 @@
     <string name="app_name">Grabbit</string>
     <string name="bitrate_kbps">%1$d kbps</string>
     <string name="cd_clear">Clear link</string>
-    <string name="cd_expand_downloads">Expand download queue</string>
     <string name="cd_more">More options</string>
     <plurals name="cd_queue">
         <item quantity="one">Open queue, %1$d download</item>

@@ -4,15 +4,13 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
-import androidx.core.app.NotificationManagerCompat
-import androidx.core.app.ServiceCompat
 import android.os.Build
 import android.os.IBinder
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.app.ServiceCompat
 import com.grabbit.core.Timing
 import com.grabbit.core.UiValues
 import com.grabbit.data.download.DownloadEngine
-import com.grabbit.data.download.DownloadTask
-import com.grabbit.data.download.TaskStatus
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -21,8 +19,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-
-private const val TAG = "DownloadService"
 
 /**
  * Foreground anchor for the download queue. The actual work happens in
