@@ -1,0 +1,78 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      abi:
+        description: 'ABI (arm64-v8a, armeabi-v7a, x86_64)'
+        required: true
+        default: 'x86_64'
+      device:
+        description: 'adb device host:port'
+        required: false
+        default: ''
+
+env:
+  GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx4g"
+
+jobs:
+  build-and-install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Restore Gradle cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle.kts', 'gradle/libs.versions.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Decode release keystore
+        if: env.KEYSTORE_B64 != ''
+        run: |
+          echo "${KEYSTORE_B64}" | base64 -d > ./release-keystore.jks
+          echo "storeFile=release-keystore.jks" > local.properties
+          echo "storePassword=${KEYSTORE_PASSWORD}" >> local.properties
+          echo "keyAlias=${KEY_ALIAS}" >> local.properties
+          echo "keyPassword=${KEY_PASSWORD}" >> local.properties
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+      - name: Assemble Release APK
+        run: ./gradlew :app:assembleRelease --console=plain
+
+      - name: Rename APK
+        run: |
+          ABI="${{ github.event.inputs.abi }}"
+          mv "app/build/outputs/apk/release/app-${ABI}-release.apk" \
+             "app/build/outputs/apk/release/grabbit-${ABI}-release.apk"
+          echo "APK_PATH=app/build/outputs/apk/release/grabbit-${ABI}-release.apk" >> $GITHUB_OUTPUT
+        id: rename
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: grabbit-apk
+          path: app/build/outputs/apk/release/grabbit-*-release.apk
+
+      - name: Install on device via adb
+        if: github.event.inputs.device != ''
+        run: |
+          sudo apt-get update -y && sudo apt-get install -y android-tools-adb
+          adb connect "${{ github.event.inputs.device }}"
+          adb -s "${{ github.event.inputs.device }}" install -r -d ${{ steps.rename.outputs.APK_PATH }}
+        env:
+          DEVICE: ${{ github.event.inputs.device }}
