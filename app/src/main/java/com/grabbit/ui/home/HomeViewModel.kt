@@ -22,11 +22,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -59,16 +56,8 @@ class HomeViewModel
             val loadAsMix: Boolean = false,
         )
 
-        /** One-off navigation requests emitted to the screen. */
-        sealed interface Event {
-            data object OpenQueue : Event
-        }
-
         private val _state = MutableStateFlow(UiState())
         val state: StateFlow<UiState> = _state.asStateFlow()
-
-        private val _events = MutableSharedFlow<Event>(extraBufferCapacity = 1)
-        val events: SharedFlow<Event> = _events.asSharedFlow()
 
         private var fetchJob: Job? = null
         private var fetchProcessId: String? = null
@@ -200,7 +189,7 @@ class HomeViewModel
             _state.update { it.copy(showSheet = false) }
         }
 
-        /** Enqueues the selected items and navigates to the queue. */
+        /** Enqueues the selected items. */
         fun startDownload(options: DownloadOptions) {
             val state = _state.value
             val media = state.media ?: return
@@ -239,7 +228,6 @@ class HomeViewModel
             if (requests.isEmpty()) return
             downloads.enqueue(requests)
             _state.update { UiState() }
-            _events.tryEmit(Event.OpenQueue)
         }
 
         private fun currentUrl(): String = Links.normalize(_state.value.url)

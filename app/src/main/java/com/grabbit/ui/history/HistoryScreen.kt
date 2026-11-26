@@ -35,11 +35,11 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -74,12 +74,12 @@ private val HistoryThumbnailWidth = 88.dp
 fun HistoryScreen(viewModel: HistoryViewModel = hiltViewModel()) {
     val items by viewModel.items.collectAsStateWithLifecycle()
     val query by viewModel.query.collectAsStateWithLifecycle()
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     val context = LocalContext.current
     var pendingDelete by remember { mutableStateOf<HistoryEntity?>(null) }
 
     Column(Modifier.fillMaxSize()) {
-        LargeTopAppBar(
+        TopAppBar(
             title = { Text(stringResource(R.string.history_title)) },
             scrollBehavior = scrollBehavior,
         )

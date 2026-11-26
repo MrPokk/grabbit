@@ -13,6 +13,7 @@ object Timing {
     val UPDATE_CHECK_INTERVAL: Duration = 1.days
     val FLOW_SUBSCRIPTION_GRACE: Duration = 5.seconds
     val SEARCH_DEBOUNCE: Duration = 150.milliseconds
+    const val FAB_ANIMATION_DURATION_MS = 200
 
     const val FETCH_SOCKET_TIMEOUT_SECONDS = 20
     const val DOWNLOAD_SOCKET_TIMEOUT_SECONDS = 30

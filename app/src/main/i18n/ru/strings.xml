@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="action_back">Назад</string>
     <string name="action_cancel">Отмена</string>
     <string name="action_choose_format">Выбрать формат</string>
     <string name="action_clear_finished">Очистить завершённые</string>
@@ -24,6 +25,12 @@
     <string name="bitrate_kbps">%1$d кбит/с</string>
     <string name="cd_clear">Очистить ссылку</string>
     <string name="cd_more">Ещё</string>
+    <plurals name="cd_queue">
+        <item quantity="one">Открыть очередь, %1$d загрузка</item>
+        <item quantity="few">Открыть очередь, %1$d загрузки</item>
+        <item quantity="many">Открыть очередь, %1$d загрузок</item>
+        <item quantity="other">Открыть очередь, %1$d загрузки</item>
+    </plurals>
     <string name="cd_thumbnail">Обложка</string>
     <string name="clipboard_hint">Ссылка вставлена из буфера обмена</string>
     <string name="convert_copy_failed">Не удалось прочитать выбранный файл</string>
@@ -95,7 +102,6 @@
     <string name="mix_toggle_title">Загрузить микс как плейлист</string>
     <string name="nav_download">Загрузка</string>
     <string name="nav_history">История</string>
-    <string name="nav_queue">Очередь</string>
     <string name="nav_settings">Настройки</string>
     <string name="notif_channel_downloads">Загрузки</string>
     <string name="notif_channel_downloads_desc">Прогресс загрузок и управление</string>

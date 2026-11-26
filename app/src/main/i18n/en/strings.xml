@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="action_back">Back</string>
     <string name="action_cancel">Cancel</string>
     <string name="action_choose_format">Choose format</string>
     <string name="action_clear_finished">Clear finished</string>
@@ -24,6 +25,10 @@
     <string name="bitrate_kbps">%1$d kbps</string>
     <string name="cd_clear">Clear link</string>
     <string name="cd_more">More options</string>
+    <plurals name="cd_queue">
+        <item quantity="one">Open queue, %1$d download</item>
+        <item quantity="other">Open queue, %1$d downloads</item>
+    </plurals>
     <string name="cd_thumbnail">Thumbnail</string>
     <string name="clipboard_hint">Link pasted from clipboard</string>
     <string name="convert_copy_failed">Could not read the selected file</string>
@@ -91,7 +96,6 @@
     <string name="mix_toggle_title">Load the mix as a playlist</string>
     <string name="nav_download">Download</string>
     <string name="nav_history">History</string>
-    <string name="nav_queue">Queue</string>
     <string name="nav_settings">Settings</string>
     <string name="notif_channel_downloads">Downloads</string>
     <string name="notif_channel_downloads_desc">Download progress and controls</string>

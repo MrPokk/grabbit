@@ -9,8 +9,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -29,12 +29,11 @@ import com.grabbit.ui.theme.Dimens
 fun HomeScreen(
     incomingLink: String?,
     onLinkConsumed: () -> Unit,
-    onOpenQueue: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val settings by viewModel.settings.collectAsStateWithLifecycle()
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     val listState = rememberLazyListState()
 
     LaunchedEffect(incomingLink) {
@@ -44,14 +43,8 @@ fun HomeScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
-        viewModel.events.collect { event ->
-            if (event is HomeViewModel.Event.OpenQueue) onOpenQueue()
-        }
-    }
-
     Column(Modifier.fillMaxSize()) {
-        LargeTopAppBar(
+        TopAppBar(
             title = { Text(stringResource(R.string.home_title)) },
             scrollBehavior = scrollBehavior,
         )
