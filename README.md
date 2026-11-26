@@ -1,6 +1,9 @@
 # Grabbit
 
 Native Android downloader for YouTube, TikTok and the rest of the yt-dlp ecosystem.
+
+**Open source, MIT licensed.** See [`LICENSE`](LICENSE).
+
 Kotlin + Jetpack Compose (Material 3), fully offline: the download engine is bundled
 [yt-dlp](https://github.com/yt-dlp/yt-dlp) plus FFmpeg, running on-device. No server, no account, no telemetry.
 
