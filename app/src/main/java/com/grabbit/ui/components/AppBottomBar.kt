@@ -1,8 +1,10 @@
 package com.grabbit.ui.components
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,6 +21,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -27,11 +30,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import com.grabbit.R
 import com.grabbit.core.Timing
 import com.grabbit.core.UiValues
 import com.grabbit.ui.Routes
 import com.grabbit.ui.theme.Dimens
+
+private val FabOffset = -Dimens.sm
+private val CradleLift = Dimens.xxs
+private val FabSize = Dimens.iconLg + Dimens.sm
 
 @Composable
 fun AppBottomBar(
@@ -73,9 +81,27 @@ fun AppBottomBar(
             animationSpec = scaleAnimationSpec,
             label = "downloadScale",
         )
+    val barColor = MaterialTheme.colorScheme.surfaceContainer
+    val ringOffset by
+        animateDpAsState(
+            targetValue = FabOffset - CradleLift - if (downloadSelected) Dimens.xxs else 0.dp,
+            animationSpec = tween(Timing.NAV_ANIMATION_DURATION_MS),
+            label = "ringOffset",
+        )
+    val ringSize by
+        animateDpAsState(
+            targetValue = if (downloadSelected) FabSize + Dimens.sm * 2 else FabSize + Dimens.sm,
+            animationSpec = tween(Timing.NAV_ANIMATION_DURATION_MS),
+            label = "ringSize",
+        )
 
     Box(modifier.fillMaxWidth()) {
-        NavigationBar {
+        Canvas(Modifier.matchParentSize()) { drawRect(color = barColor) }
+        NavigationBar(
+            containerColor = Color.Transparent,
+            tonalElevation = 0.dp,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
             NavigationBarItem(
                 selected = historySelected,
                 onClick = { if (!historySelected) onNavigate(Routes.HISTORY) },
@@ -92,13 +118,24 @@ fun AppBottomBar(
                 modifier = Modifier.weight(1f),
             )
         }
+        // Ring of the bar color behind the download button, centered on it.
+        Surface(
+            modifier =
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .offset(y = ringOffset)
+                    .size(ringSize),
+            shape = CircleShape,
+            color = barColor,
+        ) {
+        }
         FloatingActionButton(
             onClick = { if (!downloadSelected) onNavigate(Routes.DOWNLOAD) },
             modifier =
                 Modifier
                     .align(Alignment.TopCenter)
-                    .offset(y = -Dimens.sm)
-                    .size(Dimens.iconLg)
+                    .offset(y = FabOffset)
+                    .size(FabSize)
                     .graphicsLayer {
                         scaleX = downloadScale
                         scaleY = downloadScale
