@@ -6,7 +6,7 @@
     <string name="action_clear_finished">Очистить завершённые</string>
     <string name="action_close">Закрыть</string>
     <string name="action_delete">Удалить</string>
-    <string name="action_fetch">Получить</string>
+    <string name="action_fetch">Скачать</string>
     <string name="action_import">Импорт</string>
     <string name="action_open">Открыть</string>
     <string name="action_open_settings">Открыть настройки</string>
@@ -73,7 +73,7 @@
     <string name="extra_sponsorblock">Вырезать сегменты SponsorBlock</string>
     <string name="extra_subtitles">Скачать субтитры</string>
     <string name="extra_thumbnail">Вшить обложку</string>
-    <string name="fetching">Получаем информацию…</string>
+    <string name="fetching">Загрузка…</string>
     <string name="file_missing">Файл больше недоступен</string>
     <plurals name="formats_count">
         <item quantity="one">%1$d формат</item>

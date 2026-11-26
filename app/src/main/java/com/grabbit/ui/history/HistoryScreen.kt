@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.MoreVert
@@ -36,7 +37,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SearchBarDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -84,17 +86,31 @@ fun HistoryScreen(viewModel: HistoryViewModel = hiltViewModel()) {
             scrollBehavior = scrollBehavior,
         )
 
-        OutlinedTextField(
-            value = query,
-            onValueChange = viewModel::setQuery,
+        Surface(
             modifier =
                 Modifier
                     .fillMaxWidth()
                     .padding(horizontal = Dimens.md),
-            placeholder = { Text(stringResource(R.string.history_search)) },
-            leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
-            singleLine = true,
-        )
+            shape = MaterialTheme.shapes.extraLarge,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        ) {
+            SearchBarDefaults.InputField(
+                query = query,
+                onQueryChange = viewModel::setQuery,
+                onSearch = { _ -> Unit },
+                expanded = false,
+                onExpandedChange = { _ -> Unit },
+                placeholder = { Text(stringResource(R.string.history_search)) },
+                leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+                trailingIcon = {
+                    if (query.isNotEmpty()) {
+                        IconButton(onClick = { viewModel.setQuery("") }) {
+                            Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.cd_clear))
+                        }
+                    }
+                },
+            )
+        }
 
         Spacer(Modifier.height(Dimens.xs))
 

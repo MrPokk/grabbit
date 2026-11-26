@@ -125,7 +125,11 @@ internal fun UrlCard(
                     modifier = Modifier.size(Dimens.iconSm),
                 )
                 Spacer(Modifier.width(Dimens.xxs))
-                Text(stringResource(if (loading) R.string.fetching else R.string.action_fetch))
+                Text(
+                    text = stringResource(if (loading) R.string.fetching else R.string.action_fetch),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
         }
     }
