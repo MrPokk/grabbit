@@ -1,7 +1,8 @@
 package com.grabbit.ui.history
 
 import android.text.format.DateUtils
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -160,6 +161,7 @@ fun HistoryScreen(viewModel: HistoryViewModel = hiltViewModel()) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun HistoryRow(
     entity: HistoryEntity,
@@ -185,8 +187,13 @@ private fun HistoryRow(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .clickable(onClick = onOpen)
-                    .padding(vertical = Dimens.xxs),
+                    .combinedClickable(
+                        onClick = onOpen,
+                        onLongClick = {
+                            menuOpen = false
+                            onShare()
+                        },
+                    ).padding(vertical = Dimens.xxs),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Thumbnail(

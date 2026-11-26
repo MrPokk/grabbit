@@ -1,6 +1,7 @@
 package com.grabbit.ui.queue
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -60,6 +61,7 @@ internal data class TaskCallbacks(
     val onDelete: () -> Unit,
 )
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun TaskCard(
     task: DownloadTask,
@@ -74,7 +76,19 @@ internal fun TaskCard(
     val cardModifier =
         Modifier
             .fillMaxWidth()
-            .then(if (canOpen) Modifier.clickable { menuOpen = true } else Modifier)
+            .then(
+                if (canOpen) {
+                    Modifier.combinedClickable(
+                        onClick = openMenu,
+                        onLongClick = {
+                            menuOpen = false
+                            callbacks.onShare()
+                        },
+                    )
+                } else {
+                    Modifier
+                },
+            )
 
     Box {
         Card(
