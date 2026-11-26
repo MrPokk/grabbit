@@ -50,9 +50,11 @@ fun AppRoot(
     val link by incomingLink.collectAsStateWithLifecycle()
     val floatingState = rememberFloatingDownloadState()
     val imeBottom = WindowInsets.ime.asPaddingValues().calculateBottomPadding()
-    // Hide the floating download circle immediately when the queue screen opens;
-    // show it again when returning to download/history (panel closed).
-    val showWidget = currentRoute != Routes.QUEUE && queueSummary.count > 0
+    // Show the floating download circle only on the download and history screens;
+    // hide it immediately when opening the queue or settings (panel closed).
+    val showWidget =
+        (currentRoute == Routes.DOWNLOAD || currentRoute == Routes.HISTORY) &&
+            queueSummary.count > 0
 
     LaunchedEffect(currentRoute) {
         if (currentRoute != Routes.DOWNLOAD && currentRoute != Routes.HISTORY) {
