@@ -1,12 +1,10 @@
 package com.grabbit.ui.components
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationVector1D
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
@@ -14,15 +12,10 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ChevronLeft
-import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -36,18 +29,20 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
-import com.grabbit.R
 import com.grabbit.core.Timing
 import com.grabbit.core.UiValues
 import com.grabbit.data.download.QueueSummary
 import com.grabbit.ui.queue.QueueViewModel
 import com.grabbit.ui.theme.Dimens
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
+// Overlay orchestration reads top-to-bottom; splitting the drag/dock state into child composables
+// would need a dozen callbacks and hide the single source of truth.
+@Suppress("LongMethod")
 @Composable
 fun FloatingDownloadOverlay(
     summary: QueueSummary,
@@ -59,16 +54,37 @@ fun FloatingDownloadOverlay(
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
+    // true only when the widget sits still at its edge (after layout and after the snap animation finished)
+    var docked by remember { mutableStateOf(false) }
     var isDragging by remember { mutableStateOf(false) }
     val horizontalPosition = remember { Animatable(0f) }
     val verticalPosition = remember { Animatable(0f) }
+    val reveal = remember { Animatable(0f) }
+    val revealTarget = docked && !state.expanded && !isDragging
+    LaunchedEffect(revealTarget) {
+        if (revealTarget) {
+            reveal.animateTo(
+                targetValue = 1f,
+                animationSpec =
+                    spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = Spring.StiffnessLow,
+                    ),
+            )
+        } else {
+            // never leave a half-revealed goo layer behind (drag start/cancel, panel expand)
+            reveal.snapTo(0f)
+        }
+    }
+    val revealValue by reveal.asState()
 
     val layoutDirection = LocalLayoutDirection.current
     val barPadding = WindowInsets.systemBars.asPaddingValues()
     val topInsetPx = with(density) { barPadding.calculateTopPadding().toPx() }
     val leftInsetPx = with(density) { barPadding.calculateLeftPadding(layoutDirection).toPx() }
     val rightInsetPx = with(density) { barPadding.calculateRightPadding(layoutDirection).toPx() }
-    val widgetSizePx = with(density) { Dimens.iconLg.toPx() }
+    val widgetSizePx = with(density) { Dimens.gooCircleSize.toPx() }
+    val edgeGapPx = with(density) { Dimens.gooEdgeGap.toPx() }
     val gutterPx = with(density) { Dimens.md.toPx() }
     val bounds =
         FloatingBounds(
@@ -79,54 +95,62 @@ fun FloatingDownloadOverlay(
             right = rightInsetPx,
             gutter = gutterPx,
             widgetSize = widgetSizePx,
-            overlap = widgetSizePx * UiValues.FLOATING_DOCK_OVERLAP_FRACTION,
+            edgeGap = edgeGapPx,
         )
-
-    fun animateTo(
-        edge: DockEdge,
-        fraction: Float,
-    ) {
-        scope.launch {
-            horizontalPosition.animateTo(
-                bounds.dockedLeft(edge),
-                animationSpec = tween(Timing.FLOATING_SNAP_DURATION_MS),
-            )
-        }
-        scope.launch {
-            verticalPosition.animateTo(
-                bounds.topFor(fraction),
-                animationSpec = tween(Timing.FLOATING_SNAP_DURATION_MS),
-            )
-        }
-    }
 
     LaunchedEffect(bounds) {
         if (containerSize == IntSize.Zero) return@LaunchedEffect
         horizontalPosition.snapTo(bounds.dockedLeft(state.edge))
         verticalPosition.snapTo(bounds.topFor(state.verticalFraction))
+        if (!isDragging) docked = true
     }
 
     Box(modifier.fillMaxSize().onSizeChanged { containerSize = it }) {
-        val widgetOffset =
-            Modifier.offset {
-                IntOffset(horizontalPosition.value.roundToInt(), verticalPosition.value.roundToInt())
-            }
-        val widgetAnimationSpec = tween<Float>(Timing.FAB_ANIMATION_DURATION_MS)
-
-        AnimatedVisibility(
-            visible = !state.expanded,
-            modifier = widgetOffset,
-            enter = fadeIn(animationSpec = widgetAnimationSpec) + scaleIn(animationSpec = widgetAnimationSpec),
-            exit = fadeOut(animationSpec = widgetAnimationSpec) + scaleOut(animationSpec = widgetAnimationSpec),
+        Box(
+            modifier =
+                Modifier
+                    .offset {
+                        IntOffset(
+                            horizontalPosition.value.roundToInt(),
+                            verticalPosition.value.roundToInt(),
+                        )
+                    }.size(Dimens.gooCircleSize),
         ) {
+            if (!isDragging) {
+                GooeyEdgeBlob(
+                    edge = state.edge,
+                    reveal = revealValue,
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    modifier =
+                        Modifier
+                            .requiredSize(Dimens.gooLayerSize)
+                            .align(Alignment.Center),
+                )
+            }
+            DownloadProgressCircle(
+                summary = summary,
+                badgeAlignment =
+                    if (state.edge == DockEdge.RIGHT) Alignment.TopStart else Alignment.TopEnd,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                contentAlpha = 1f,
+                containerVisible = isDragging,
+                modifier =
+                    Modifier
+                        .size(Dimens.gooCircleSize)
+                        .align(Alignment.Center),
+            )
             Box(
                 modifier =
                     Modifier
-                        .size(Dimens.iconLg)
+                        .size(Dimens.iconButton)
+                        .align(Alignment.Center)
                         .pointerInput(Unit) { detectTapGestures(onTap = { state.expand() }) }
                         .pointerInput(bounds) {
                             detectDragGestures(
-                                onDragStart = { isDragging = true },
+                                onDragStart = {
+                                    isDragging = true
+                                    docked = false
+                                },
                                 onDrag = { change, delta ->
                                     change.consume()
                                     scope.launch {
@@ -145,6 +169,7 @@ fun FloatingDownloadOverlay(
                                     }
                                 },
                                 onDragEnd = {
+                                    isDragging = false
                                     val draggedEdge =
                                         if (
                                             horizontalPosition.value + widgetSizePx * UiValues.MIDPOINT <
@@ -156,62 +181,33 @@ fun FloatingDownloadOverlay(
                                         }
                                     val draggedFraction = bounds.fractionFor(verticalPosition.value)
                                     state.dock(draggedEdge, draggedFraction)
-                                    isDragging = false
-                                    animateTo(draggedEdge, draggedFraction)
+                                    scope.launch {
+                                        snapToDock(
+                                            bounds,
+                                            horizontalPosition,
+                                            verticalPosition,
+                                            draggedEdge,
+                                            draggedFraction,
+                                        )
+                                        if (!isDragging) docked = true
+                                    }
                                 },
                                 onDragCancel = {
                                     isDragging = false
-                                    animateTo(state.edge, state.verticalFraction)
+                                    scope.launch {
+                                        snapToDock(
+                                            bounds,
+                                            horizontalPosition,
+                                            verticalPosition,
+                                            state.edge,
+                                            state.verticalFraction,
+                                        )
+                                        docked = true
+                                    }
                                 },
                             )
                         },
-                contentAlignment = Alignment.Center,
-            ) {
-                DownloadProgressCircle(
-                    summary = summary,
-                    badgeAlignment =
-                        if (state.edge == DockEdge.RIGHT) Alignment.TopStart else Alignment.TopEnd,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
-        }
-
-        val arrowSizePx = with(density) { Dimens.iconButton.toPx() }
-        val arrowGapPx = with(density) { Dimens.xxs.toPx() }
-        val arrowX =
-            if (state.edge == DockEdge.RIGHT) {
-                horizontalPosition.value - arrowSizePx - arrowGapPx
-            } else {
-                horizontalPosition.value + widgetSizePx + arrowGapPx
-            }
-        val arrowY = verticalPosition.value + (widgetSizePx - arrowSizePx) * UiValues.MIDPOINT
-        AnimatedVisibility(
-            visible = !state.expanded && !isDragging,
-            modifier = Modifier.offset { IntOffset(arrowX.roundToInt(), arrowY.roundToInt()) },
-            enter = fadeIn(animationSpec = widgetAnimationSpec) + scaleIn(animationSpec = widgetAnimationSpec),
-            exit = fadeOut(animationSpec = widgetAnimationSpec) + scaleOut(animationSpec = widgetAnimationSpec),
-        ) {
-            Surface(
-                onClick = state::expand,
-                modifier = Modifier.size(Dimens.iconButton),
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                shadowElevation = Dimens.xxs,
-            ) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector =
-                            if (state.edge == DockEdge.RIGHT) {
-                                Icons.Rounded.ChevronLeft
-                            } else {
-                                Icons.Rounded.ChevronRight
-                            },
-                        contentDescription = stringResource(R.string.cd_expand_downloads),
-                        modifier = Modifier.size(Dimens.iconSm),
-                    )
-                }
-            }
+            )
         }
 
         DownloadQueuePanel(
@@ -225,6 +221,30 @@ fun FloatingDownloadOverlay(
     }
 }
 
+// Suspends until BOTH axes finished, so goo starts only after the widget really touched the edge.
+private suspend fun snapToDock(
+    bounds: FloatingBounds,
+    horizontalPosition: Animatable<Float, AnimationVector1D>,
+    verticalPosition: Animatable<Float, AnimationVector1D>,
+    edge: DockEdge,
+    fraction: Float,
+) {
+    coroutineScope {
+        launch {
+            horizontalPosition.animateTo(
+                bounds.dockedLeft(edge),
+                animationSpec = tween(Timing.FLOATING_SNAP_DURATION_MS),
+            )
+        }
+        launch {
+            verticalPosition.animateTo(
+                bounds.topFor(fraction),
+                animationSpec = tween(Timing.FLOATING_SNAP_DURATION_MS),
+            )
+        }
+    }
+}
+
 private data class FloatingBounds(
     val width: Int,
     val height: Int,
@@ -233,7 +253,7 @@ private data class FloatingBounds(
     val right: Float,
     val gutter: Float,
     val widgetSize: Float,
-    val overlap: Float,
+    val edgeGap: Float,
 ) {
     val minTop: Float
         get() = top + gutter
@@ -242,18 +262,18 @@ private data class FloatingBounds(
         get() = (height - gutter - widgetSize).coerceAtLeast(minTop)
 
     val minLeft: Float
-        get() = left
+        get() = left + edgeGap
 
     val maxLeft: Float
-        get() = (width - right - widgetSize).coerceAtLeast(minLeft)
+        get() = (width - right - widgetSize - edgeGap).coerceAtLeast(minLeft)
 
     val usableCenter: Float
         get() = (left + width - right) * UiValues.FLOATING_EDGE_SNAP_FRACTION
 
     fun dockedLeft(edge: DockEdge): Float =
         when (edge) {
-            DockEdge.LEFT -> left - overlap
-            DockEdge.RIGHT -> width - right - widgetSize + overlap
+            DockEdge.LEFT -> left + edgeGap
+            DockEdge.RIGHT -> width - right - widgetSize - edgeGap
         }
 
     fun topFor(fraction: Float): Float = minTop + (maxTop - minTop) * fraction.coerceIn(0f, 1f)

@@ -16,7 +16,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.unit.Dp
 import com.grabbit.R
 import com.grabbit.data.download.QueueSummary
 import com.grabbit.ui.theme.Dimens
@@ -25,52 +29,85 @@ import com.grabbit.ui.theme.Dimens
 fun DownloadProgressCircle(
     summary: QueueSummary,
     badgeAlignment: Alignment = Alignment.TopEnd,
+    shape: Shape = CircleShape,
+    containerColor: Color = MaterialTheme.colorScheme.primaryContainer,
+    contentColor: Color = MaterialTheme.colorScheme.onPrimaryContainer,
+    contentAlpha: Float = 1f,
+    shadowElevation: Dp = Dimens.xxs,
+    containerVisible: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
+    val content =
+        Modifier
+            .fillMaxSize()
+            .graphicsLayer { alpha = contentAlpha }
+
     Box(modifier) {
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            tonalElevation = Dimens.xxs,
-            shadowElevation = Dimens.xxs,
-        ) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                if (summary.indeterminate) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.fillMaxSize(),
-                        color = MaterialTheme.colorScheme.primary,
-                        strokeWidth = Dimens.xxs,
-                    )
-                } else {
-                    CircularProgressIndicator(
-                        progress = { summary.progress },
-                        modifier = Modifier.fillMaxSize(),
-                        color = MaterialTheme.colorScheme.primary,
-                        strokeWidth = Dimens.xxs,
-                    )
-                }
-                Icon(
-                    imageVector = Icons.Rounded.Download,
-                    contentDescription =
-                        pluralStringResource(
-                            R.plurals.cd_queue,
-                            summary.count,
-                            summary.count,
-                        ),
-                    modifier = Modifier.size(Dimens.iconMd),
-                )
+        if (containerVisible) {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                shape = shape,
+                color = containerColor,
+                contentColor = contentColor,
+                tonalElevation = Dimens.xxs,
+                shadowElevation = shadowElevation,
+            ) {
+                DownloadProgressContent(summary, contentColor, content)
             }
+        } else {
+            DownloadProgressContent(summary, contentColor, content)
         }
         if (summary.count > 1) {
             Badge(
-                modifier = Modifier.align(badgeAlignment).padding(Dimens.xxs),
+                modifier =
+                    Modifier
+                        .align(badgeAlignment)
+                        .padding(Dimens.xxs)
+                        .graphicsLayer { alpha = contentAlpha },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
             ) {
                 Text(text = summary.count.toString())
             }
         }
+    }
+}
+
+@Composable
+private fun DownloadProgressContent(
+    summary: QueueSummary,
+    contentColor: Color,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier, contentAlignment = Alignment.Center) {
+        val ring =
+            Modifier
+                .fillMaxSize()
+                .padding(Dimens.gooProgressInset)
+        if (summary.indeterminate) {
+            CircularProgressIndicator(
+                modifier = ring,
+                color = MaterialTheme.colorScheme.primary,
+                strokeWidth = Dimens.gooProgressStroke,
+            )
+        } else {
+            CircularProgressIndicator(
+                progress = { summary.progress },
+                modifier = ring,
+                color = MaterialTheme.colorScheme.primary,
+                strokeWidth = Dimens.gooProgressStroke,
+            )
+        }
+        Icon(
+            imageVector = Icons.Rounded.Download,
+            contentDescription =
+                pluralStringResource(
+                    R.plurals.cd_queue,
+                    summary.count,
+                    summary.count,
+                ),
+            tint = contentColor,
+            modifier = Modifier.size(Dimens.gooIconSize),
+        )
     }
 }
