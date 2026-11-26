@@ -129,15 +129,7 @@ fun showSavedFileInFolder(
     val fileUri = uri.toUri()
     // Prefer showing the parent folder so the user sees the file next to its siblings.
     val folderUri = savedFileFolderUri(context, fileUri)
-    val showFolder =
-        folderUri != null &&
-            openUriViaChooser(
-                context,
-                folderUri,
-                DocumentsContract.Document.MIME_TYPE_DIR,
-                R.string.action_show_in_folder,
-            )
-    if (showFolder) return
+    if (folderUri != null && openFolderPickerAt(context, folderUri)) return
     // Fall back to opening the file itself when no app can show its folder.
     if (openUriViaChooser(context, fileUri, null, R.string.action_open)) {
         return
@@ -145,6 +137,28 @@ fun showSavedFileInFolder(
     AppLog.e(TAG, "No activity can show the file location or open the file")
     copyPathToClipboard(context, fileUri)
     Toast.makeText(context, R.string.error_cannot_open_folder, Toast.LENGTH_LONG).show()
+}
+
+private fun openFolderPickerAt(
+    context: Context,
+    folderUri: Uri,
+): Boolean {
+    val intent =
+        Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "*/*"
+            putExtra(DocumentsContract.EXTRA_INITIAL_URI, folderUri)
+        }
+    return try {
+        context.startActivity(intent)
+        true
+    } catch (e: ActivityNotFoundException) {
+        AppLog.e(TAG, "No file manager can show $folderUri", e)
+        false
+    } catch (e: SecurityException) {
+        AppLog.e(TAG, "Cannot show folder $folderUri", e)
+        false
+    }
 }
 
 /** Opens [uri] with ACTION_VIEW in a chooser so the user picks the app. Returns true on success. */
