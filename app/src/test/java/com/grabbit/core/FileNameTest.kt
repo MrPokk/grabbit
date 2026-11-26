@@ -23,7 +23,7 @@ class FileNameTest {
     fun `sanitize trims and falls back for blank names`() {
         assertEquals("download", FileName.sanitize(""))
         assertEquals("download", FileName.sanitize("   "))
-        assertEquals("________", FileName.sanitize("/\\:*?\"<>|")) // all illegal -> underscores
+        assertEquals("_________", FileName.sanitize("/\\:*?\"<>|")) // all illegal -> underscores
         assertEquals("___", FileName.sanitize("/\\*")) // trimmed only, illegal replaced
     }
 

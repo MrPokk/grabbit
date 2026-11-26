@@ -3,7 +3,7 @@ package com.grabbit.core
 import java.util.Locale
 
 /** Illegal characters in a file name, replaced with `_` during sanitization. */
-private const val FILE_NAME_ILLEGAL_CHARS = "[/\\\\:*?\"<>|]"
+private val FILE_NAME_ILLEGAL_CHARS = Regex("[/\\\\:*?\"<>|]")
 
 /** Fallback name when a user-provided file name is blank or only illegal characters. */
 private const val FILE_NAME_FALLBACK = "download"
@@ -22,7 +22,6 @@ object FileName {
      */
     fun sanitize(name: String): String =
         name.replace(FILE_NAME_ILLEGAL_CHARS, "_").trim().ifBlank { FILE_NAME_FALLBACK }
-
     /**
      * Returns [candidate] if it is not already taken, otherwise appends
      * " (1)", " (2)", … before the extension until a free name is found.
@@ -34,8 +33,12 @@ object FileName {
         existing: Set<String>,
     ): String {
         if (candidate !in existing) return candidate
-        val base = candidate.substringBeforeLast('.', candidate)
-        val ext = candidate.substringAfterLast('.', "")
+        // Split on the first dot so compound extensions (".tar.gz") stay
+        // intact and the collision suffix lands before them: "archive (1).tar.gz".
+        // Names without a dot get no extension: "video (1)".
+        val dotIndex = candidate.indexOf('.')
+        val base = if (dotIndex >= 0) candidate.substring(0, dotIndex) else candidate
+        val ext = if (dotIndex >= 0) candidate.substring(dotIndex + 1) else ""
         var index = 1
         while (true) {
             val name =

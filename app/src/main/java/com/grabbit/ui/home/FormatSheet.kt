@@ -3,6 +3,7 @@ package com.grabbit.ui.home
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -81,15 +82,17 @@ fun FormatSheet(
             contract = ActivityResultContracts.OpenDocumentTree(),
         ) { uri ->
             uri?.let { pickedUri ->
-                try {
-                    context.contentResolver.takePersistableUriPermission(
-                        pickedUri,
-                        Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
-                    )
-                } catch (e: SecurityException) {
-                    AppLog.e(TAG, "could not persist the folder permission", e)
-                }
                 saveFolderUri = pickedUri.toString()
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    try {
+                        context.contentResolver.takePersistableUriPermission(
+                            pickedUri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                        )
+                    } catch (e: SecurityException) {
+                        AppLog.e(TAG, "could not persist the folder permission", e)
+                    }
+                }
                 saveFolderName = folderDisplayName(context, pickedUri)
             }
         }
@@ -269,7 +272,10 @@ fun FormatSheet(
     }
 }
 
-private fun folderDisplayName(context: Context, uri: Uri?): String? =
+private fun folderDisplayName(
+    context: Context,
+    uri: Uri?,
+): String? =
     uri?.let { treeUri ->
         DocumentFile.fromTreeUri(context, treeUri)?.name
     }

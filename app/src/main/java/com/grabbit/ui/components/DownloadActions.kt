@@ -123,10 +123,16 @@ fun showSavedFileInFolder(
 ) {
     val fileUri = uri.toUri()
     // Prefer showing the parent folder so the user sees the file next to its siblings.
-    val folderUri = savedFileFolderUri(context, fileUri)
-    if (folderUri != null && openUriViaChooser(context, folderUri, DocumentsContract.Document.MIME_TYPE_DIR, R.string.action_show_in_folder)) {
-        return
-    }
+    val folderUri = savedFileFolderUri(fileUri)
+    val showFolder =
+        folderUri != null &&
+            openUriViaChooser(
+                context,
+                folderUri,
+                DocumentsContract.Document.MIME_TYPE_DIR,
+                R.string.action_show_in_folder,
+            )
+    if (showFolder) return
     // Fall back to opening the file itself when no app can show its folder.
     if (openUriViaChooser(context, fileUri, null, R.string.action_open)) {
         return
@@ -167,16 +173,16 @@ private fun openUriViaChooser(
     }
 }
 
-private fun copyPathToClipboard(context: Context, uri: Uri) {
+private fun copyPathToClipboard(
+    context: Context,
+    uri: Uri,
+) {
     val manager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     manager.setPrimaryClip(ClipData.newPlainText("file_path", uri.toString()))
     Toast.makeText(context, R.string.path_copied_to_clipboard, Toast.LENGTH_SHORT).show()
 }
 
-private fun savedFileFolderUri(
-    context: Context,
-    uri: Uri,
-): Uri? {
+private fun savedFileFolderUri(uri: Uri): Uri? {
     if (uri.scheme == ContentResolver.SCHEME_FILE || uri.authority != EXTERNAL_STORAGE_AUTHORITY) {
         // SAF tree/document URIs are the only folder URIs we can build safely.
         // MediaStore and file:// URIs fall back to opening the file itself.
