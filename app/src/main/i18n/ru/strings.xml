@@ -6,7 +6,7 @@
     <string name="action_clear_finished">Очистить завершённые</string>
     <string name="action_close">Закрыть</string>
     <string name="action_collapse">Свернуть очередь</string>
-    <string name="action_delete">Удалить</string>
+    <string name="action_delete_from_device">Удалить с устройства</string>
     <string name="action_fetch">Скачать</string>
     <string name="action_import">Импорт</string>
     <string name="action_open">Открыть</string>
@@ -16,7 +16,7 @@
     <string name="action_quick_download">Быстрая загрузка</string>
     <string name="action_redownload">Скачать снова</string>
     <string name="action_remove">Убрать</string>
-    <string name="action_remove_record">Убрать</string>
+    <string name="action_remove_from_list">Удалить из списка</string>
     <string name="action_resume">Продолжить</string>
     <string name="action_retry">Повторить</string>
     <string name="action_save">Сохранить</string>
@@ -46,11 +46,14 @@
     <string name="convert_start">Конвертировать</string>
     <string name="convert_target">Целевой формат</string>
     <string name="convert_title">Конвертация</string>
-    <string name="delete_confirm_body">Запись исчезнет из истории. Файл на устройстве останется.</string>
-    <string name="delete_confirm_title">Убрать из истории?</string>
+    <string name="delete_confirm_body">Запись исчезнет из списка. Файл на устройстве останется.</string>
+    <string name="delete_confirm_title">Удалить из списка?</string>
+    <string name="delete_device_confirm_body">Файл будет безвозвратно удалён с устройства и убран из списка.</string>
+    <string name="delete_device_confirm_title">Удалить с устройства?</string>
     <string name="empty_hint_body">Работает с YouTube, TikTok, Instagram, X, SoundCloud и ещё 1000+ сайтами.</string>
     <string name="empty_hint_title">Вставьте ссылку на видео</string>
     <string name="error_age">Видео с возрастным ограничением. Импортируйте cookies в настройках.</string>
+    <string name="error_delete_failed">Не удалось удалить файл. Возможно, он был перемещён или удалён.</string>
     <string name="error_details_hide">Скрыть подробности</string>
     <string name="error_details_show">Подробности</string>
     <string name="error_drm">Видео защищено DRM и не может быть скачано.</string>

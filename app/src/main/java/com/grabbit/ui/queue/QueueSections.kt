@@ -208,6 +208,7 @@ internal fun TaskCard(
                 onOpen = callbacks.onOpen,
                 onShare = callbacks.onShare,
                 onRedownload = callbacks.onRedownload,
+                onRemove = callbacks.onRemove,
                 onDelete = callbacks.onDelete,
             )
         }

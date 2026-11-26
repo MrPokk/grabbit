@@ -6,7 +6,7 @@
     <string name="action_clear_finished">Clear finished</string>
     <string name="action_close">Close</string>
     <string name="action_collapse">Collapse queue</string>
-    <string name="action_delete">Delete</string>
+    <string name="action_delete_from_device">Delete from device</string>
     <string name="action_fetch">Download</string>
     <string name="action_import">Import</string>
     <string name="action_open">Open</string>
@@ -16,7 +16,7 @@
     <string name="action_quick_download">Quick download</string>
     <string name="action_redownload">Download again</string>
     <string name="action_remove">Remove</string>
-    <string name="action_remove_record">Remove</string>
+    <string name="action_remove_from_list">Remove from list</string>
     <string name="action_resume">Resume</string>
     <string name="action_retry">Retry</string>
     <string name="action_save">Save</string>
@@ -44,11 +44,14 @@
     <string name="convert_start">Convert</string>
     <string name="convert_target">Target format</string>
     <string name="convert_title">Convert</string>
-    <string name="delete_confirm_body">The record is removed from history. The file on your device is kept.</string>
-    <string name="delete_confirm_title">Remove from history?</string>
+    <string name="delete_confirm_body">The entry is removed from the list. The file on your device is kept.</string>
+    <string name="delete_confirm_title">Remove from list?</string>
+    <string name="delete_device_confirm_body">The file will be permanently deleted from your device and removed from the list.</string>
+    <string name="delete_device_confirm_title">Delete from device?</string>
     <string name="empty_hint_body">Works with YouTube, TikTok, Instagram, X, SoundCloud and 1000+ other sites.</string>
     <string name="empty_hint_title">Paste a video link</string>
     <string name="error_age">Age-restricted video. Import cookies in Settings to access it.</string>
+    <string name="error_delete_failed">Could not delete the file. It may have been moved or removed.</string>
     <string name="error_details_hide">Hide details</string>
     <string name="error_details_show">Details</string>
     <string name="error_drm">This video is DRM-protected and cannot be downloaded.</string>

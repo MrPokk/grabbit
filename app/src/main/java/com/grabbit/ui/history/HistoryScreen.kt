@@ -1,6 +1,7 @@
 package com.grabbit.ui.history
 
 import android.text.format.DateUtils
+import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -24,7 +25,6 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -32,16 +32,17 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -53,6 +54,8 @@ import com.grabbit.R
 import com.grabbit.core.Formatters
 import com.grabbit.core.UiValues
 import com.grabbit.data.db.HistoryEntity
+import com.grabbit.ui.components.DeleteConfirmationDialog
+import com.grabbit.ui.components.DeleteMode
 import com.grabbit.ui.components.DownloadActionsMenu
 import com.grabbit.ui.components.EmptyState
 import com.grabbit.ui.components.Thumbnail
@@ -68,9 +71,17 @@ private val HistoryThumbnailWidth = 88.dp
 fun HistoryScreen(viewModel: HistoryViewModel = hiltViewModel()) {
     val items by viewModel.items.collectAsStateWithLifecycle()
     val query by viewModel.query.collectAsStateWithLifecycle()
+    val message by viewModel.message.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     val context = LocalContext.current
-    var pendingDelete by remember { mutableStateOf<HistoryEntity?>(null) }
+    var pendingDelete by remember { mutableStateOf<Pair<HistoryEntity, DeleteMode>?>(null) }
+
+    LaunchedEffect(message) {
+        message?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            viewModel.consumeMessage()
+        }
+    }
 
     Column(Modifier.fillMaxSize()) {
         TopAppBar(
@@ -82,9 +93,9 @@ fun HistoryScreen(viewModel: HistoryViewModel = hiltViewModel()) {
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = Dimens.md),
+                    .padding(start = Dimens.md, top = Dimens.sm, end = Dimens.md),
             shape = MaterialTheme.shapes.extraLarge,
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            color = Color.Transparent,
         ) {
             SearchBarDefaults.InputField(
                 query = query,
@@ -132,31 +143,25 @@ fun HistoryScreen(viewModel: HistoryViewModel = hiltViewModel()) {
                             shareSavedFile(context, entity.uri, entity.fileName, entity.mimeType)
                         },
                         onRedownload = { viewModel.redownload(entity) },
-                        onDelete = { pendingDelete = entity },
+                        onRemove = { pendingDelete = entity to DeleteMode.REMOVE },
+                        onDelete = { pendingDelete = entity to DeleteMode.DELETE_FILE },
                     )
                 }
             }
         }
     }
 
-    pendingDelete?.let { entity ->
-        AlertDialog(
-            onDismissRequest = { pendingDelete = null },
-            title = { Text(stringResource(R.string.delete_confirm_title)) },
-            text = { Text(stringResource(R.string.delete_confirm_body)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.delete(entity)
-                        pendingDelete = null
-                    },
-                ) { Text(stringResource(R.string.action_remove_record)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { pendingDelete = null }) {
-                    Text(stringResource(R.string.action_cancel))
+    pendingDelete?.let { (entity, mode) ->
+        DeleteConfirmationDialog(
+            mode = mode,
+            onConfirm = {
+                when (mode) {
+                    DeleteMode.REMOVE -> viewModel.remove(entity)
+                    DeleteMode.DELETE_FILE -> viewModel.deleteFromDevice(entity)
                 }
+                pendingDelete = null
             },
+            onDismiss = { pendingDelete = null },
         )
     }
 }
@@ -168,6 +173,7 @@ private fun HistoryRow(
     onOpen: () -> Unit,
     onShare: () -> Unit,
     onRedownload: () -> Unit,
+    onRemove: () -> Unit,
     onDelete: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -242,6 +248,7 @@ private fun HistoryRow(
                 onOpen = onOpen,
                 onShare = onShare,
                 onRedownload = onRedownload,
+                onRemove = onRemove,
                 onDelete = onDelete,
             )
         }

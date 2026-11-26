@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Refresh
@@ -28,6 +29,7 @@ fun DownloadActionsMenu(
     onOpen: () -> Unit,
     onShare: () -> Unit,
     onRedownload: () -> Unit,
+    onRemove: () -> Unit,
     onDelete: () -> Unit,
 ) {
     DropdownMenu(
@@ -59,7 +61,15 @@ fun DownloadActionsMenu(
             },
         )
         DropdownMenuItem(
-            text = { Text(stringResource(R.string.action_delete)) },
+            text = { Text(stringResource(R.string.action_remove_from_list)) },
+            leadingIcon = { Icon(Icons.Rounded.Close, contentDescription = null) },
+            onClick = {
+                onDismiss()
+                onRemove()
+            },
+        )
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.action_delete_from_device)) },
             leadingIcon = { Icon(Icons.Rounded.Delete, contentDescription = null) },
             onClick = {
                 onDismiss()

@@ -2,6 +2,7 @@ package com.grabbit.ui.history
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.grabbit.R
 import com.grabbit.core.AppLog
 import com.grabbit.core.Timing
 import com.grabbit.core.stateInUi
@@ -10,6 +11,7 @@ import com.grabbit.data.db.HistoryEntity
 import com.grabbit.data.download.DownloadOptions
 import com.grabbit.data.download.DownloadRepository
 import com.grabbit.data.download.DownloadRequest
+import com.grabbit.data.media.SavedFileDeleter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -33,8 +35,12 @@ class HistoryViewModel
     constructor(
         private val dao: HistoryDao,
         private val downloads: DownloadRepository,
+        private val deleter: SavedFileDeleter,
     ) : ViewModel() {
         private val json = Json { ignoreUnknownKeys = true }
+
+        private val _message = MutableStateFlow<Int?>(null)
+        val message: StateFlow<Int?> = _message.asStateFlow()
 
         private val _query = MutableStateFlow("")
         val query: StateFlow<String> = _query.asStateFlow()
@@ -50,9 +56,24 @@ class HistoryViewModel
             _query.value = value
         }
 
-        /** Removes one entry from history. */
-        fun delete(entity: HistoryEntity) {
+        /** Removes one entry from history, keeping its file. */
+        fun remove(entity: HistoryEntity) {
             viewModelScope.launch { dao.delete(entity) }
+        }
+
+        /** Deletes the saved file first, then drops the entry only when deletion succeeded. */
+        fun deleteFromDevice(entity: HistoryEntity) {
+            viewModelScope.launch {
+                if (deleter.delete(entity.uri)) {
+                    dao.delete(entity)
+                } else {
+                    _message.value = R.string.error_delete_failed
+                }
+            }
+        }
+
+        fun consumeMessage() {
+            _message.value = null
         }
 
         /** Re-enqueues a saved download, falling back to defaults for unreadable options. */

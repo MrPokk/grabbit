@@ -60,6 +60,10 @@ interface HistoryDao {
     @Delete
     suspend fun delete(entity: HistoryEntity)
 
+    /** Removes the history entry for a file deleted from the device. */
+    @Query("DELETE FROM history WHERE uri = :uri")
+    suspend fun deleteByUri(uri: String)
+
     /** Removes every history entry. */
     @Query("DELETE FROM history")
     suspend fun clear()

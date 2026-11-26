@@ -1,5 +1,6 @@
 package com.grabbit.ui.queue
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -11,7 +12,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.DownloadDone
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -21,6 +21,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,6 +37,8 @@ import com.grabbit.R
 import com.grabbit.core.MimeTypes
 import com.grabbit.data.download.DownloadTask
 import com.grabbit.data.download.MediaType
+import com.grabbit.ui.components.DeleteConfirmationDialog
+import com.grabbit.ui.components.DeleteMode
 import com.grabbit.ui.components.EmptyState
 import com.grabbit.ui.components.openSavedFile
 import com.grabbit.ui.components.shareSavedFile
@@ -53,10 +56,18 @@ fun QueueScreen(
 ) {
     val tasks by viewModel.tasks.collectAsStateWithLifecycle()
     val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val message by viewModel.message.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     val activeCount = tasks.count { it.status.isActive }
     val context = LocalContext.current
-    var pendingDelete by remember { mutableStateOf<DownloadTask?>(null) }
+    var pendingDelete by remember { mutableStateOf<Pair<DownloadTask, DeleteMode>?>(null) }
+
+    LaunchedEffect(message) {
+        message?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            viewModel.consumeMessage()
+        }
+    }
 
     Column(modifier.fillMaxSize()) {
         TopAppBar(
@@ -139,7 +150,7 @@ fun QueueScreen(
                                     }
                                 },
                                 onRedownload = { viewModel.downloadAgain(task) },
-                                onDelete = { pendingDelete = task },
+                                onDelete = { pendingDelete = task to DeleteMode.DELETE_FILE },
                             ),
                     )
                 }
@@ -152,24 +163,17 @@ fun QueueScreen(
         }
     }
 
-    pendingDelete?.let { task ->
-        AlertDialog(
-            onDismissRequest = { pendingDelete = null },
-            title = { Text(stringResource(R.string.delete_confirm_title)) },
-            text = { Text(stringResource(R.string.delete_confirm_body)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.remove(task.id)
-                        pendingDelete = null
-                    },
-                ) { Text(stringResource(R.string.action_remove_record)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { pendingDelete = null }) {
-                    Text(stringResource(R.string.action_cancel))
+    pendingDelete?.let { (task, mode) ->
+        DeleteConfirmationDialog(
+            mode = mode,
+            onConfirm = {
+                when (mode) {
+                    DeleteMode.REMOVE -> viewModel.remove(task.id)
+                    DeleteMode.DELETE_FILE -> viewModel.deleteFromDevice(task)
                 }
+                pendingDelete = null
             },
+            onDismiss = { pendingDelete = null },
         )
     }
 }

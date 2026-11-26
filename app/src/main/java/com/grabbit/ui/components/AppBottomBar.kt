@@ -41,6 +41,9 @@ private val FabOffset = -Dimens.sm
 private val CradleLift = Dimens.xxs
 private val FabSize = Dimens.iconLg + Dimens.sm
 
+// The cradle ring grows when Download is selected; the wider middle gap keeps both items clear of it.
+private const val CENTER_GAP_WEIGHT = 2f
+
 @Composable
 fun AppBottomBar(
     currentRoute: String,
@@ -102,6 +105,7 @@ fun AppBottomBar(
             tonalElevation = 0.dp,
             modifier = Modifier.fillMaxWidth(),
         ) {
+            Spacer(Modifier.weight(1f))
             NavigationBarItem(
                 selected = historySelected,
                 onClick = { if (!historySelected) onNavigate(Routes.HISTORY) },
@@ -109,7 +113,7 @@ fun AppBottomBar(
                 label = { Text(stringResource(R.string.nav_history)) },
                 modifier = Modifier.weight(1f),
             )
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.weight(CENTER_GAP_WEIGHT))
             NavigationBarItem(
                 selected = settingsSelected,
                 onClick = { if (!settingsSelected) onNavigate(Routes.SETTINGS) },
@@ -117,6 +121,7 @@ fun AppBottomBar(
                 label = { Text(stringResource(R.string.nav_settings)) },
                 modifier = Modifier.weight(1f),
             )
+            Spacer(Modifier.weight(1f))
         }
         // Ring of the bar color behind the download button, centered on it.
         Surface(

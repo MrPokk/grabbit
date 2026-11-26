@@ -57,7 +57,7 @@ internal fun UrlCard(
 ) {
     val noIndicator = MaterialTheme.colorScheme.onSurface.copy(alpha = 0f)
     Column(
-        modifier = modifier.padding(Dimens.md),
+        modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(Dimens.sm),
     ) {
         TextField(
