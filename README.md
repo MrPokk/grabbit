@@ -1,21 +1,21 @@
 # Grabbit
 
-Android-качалка для YouTube, TikTok и остального из экосистемы yt-dlp. Вставь ссылку, выбери формат и качество — файл в папке Музыка или Видео. Поддерживаются плейлисты, каналы, субтитры, SponsorBlock, обложки и теги, постоянная очередь.
+Android downloader for YouTube, TikTok and the rest of the yt-dlp ecosystem. Paste a link, pick format and quality — the file lands in your Music or Movies folder. Playlists, channels, subtitles, SponsorBlock, cover art and tags, persistent download queue with several parallel downloads.
 
-На Kotlin + Jetpack Compose (Material 3), есть русский и английский.
+Built with Kotlin + Jetpack Compose (Material 3), English and Russian UI.
 
-Полностью офлайн: встроенный yt-dlp + FFmpeg на устройстве, никаких серверов и телеметрии. yt-dlp обновляется сам во время работы.
+Fully offline: bundled yt-dlp + FFmpeg running on the device, no servers and no telemetry. yt-dlp updates itself at runtime, so you don't need a new APK every time YouTube changes something.
 
-Открытый проект, лицензия MIT — см. [`LICENSE`](LICENSE).
+Open source, MIT license — see [`LICENSE`](LICENSE).
 
-## Сборка
+## Build
 
 ```bash
 ./gradlew :app:assembleDebug
 ```
 
-Нужен JDK 17+ и Android SDK (платформа 36). APK — в `app/build/outputs/apk/debug/`. Подробности — в [`AGENTS.md`](AGENTS.md).
+Requires JDK 17+ and Android SDK (platform 36). APK lands in `app/build/outputs/apk/debug/`. Details in [`AGENTS.md`](AGENTS.md).
 
-## Ограничения
+## Limitations
 
-DRM-защищённый контент не поддерживается. Скачивайте только то, на что у вас есть права.
+DRM-protected content is not supported. Download only content you own or are licensed to download.
