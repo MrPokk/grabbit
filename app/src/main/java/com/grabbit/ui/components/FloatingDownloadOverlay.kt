@@ -72,8 +72,16 @@ fun FloatingDownloadOverlay(
                     ),
             )
         } else {
-            // never leave a half-revealed goo layer behind (drag start/cancel, panel expand)
-            reveal.snapTo(0f)
+            // retract the goo blob gooeyly instead of snapping it away, so the download icon
+            // can tear off together with it when the queue panel opens
+            reveal.animateTo(
+                targetValue = 0f,
+                animationSpec =
+                    spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = Spring.StiffnessLow,
+                    ),
+            )
         }
     }
     val revealValue by reveal.asState()
@@ -127,17 +135,11 @@ fun FloatingDownloadOverlay(
                             .align(Alignment.Center),
                 )
             }
-            DownloadProgressCircle(
+            DownloadCircleIfCollapsed(
+                expanded = state.expanded,
                 summary = summary,
-                badgeAlignment =
-                    if (state.edge == DockEdge.RIGHT) Alignment.TopStart else Alignment.TopEnd,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                contentAlpha = 1f,
-                containerVisible = isDragging,
-                modifier =
-                    Modifier
-                        .size(Dimens.gooCircleSize)
-                        .align(Alignment.Center),
+                edge = state.edge,
+                isDragging = isDragging,
             )
             Box(
                 modifier =
@@ -218,6 +220,31 @@ fun FloatingDownloadOverlay(
             onOpenSettings = onOpenSettings,
             modifier = Modifier.fillMaxSize(),
         )
+    }
+}
+
+@Composable
+private fun DownloadCircleIfCollapsed(
+    expanded: Boolean,
+    summary: QueueSummary,
+    edge: DockEdge,
+    isDragging: Boolean,
+) {
+    // key forces Compose to completely replace this node when `expanded` changes,
+    // guaranteeing the circle disappears instantly (no stale node, no animation).
+    androidx.compose.runtime.key(expanded) {
+        if (!expanded) {
+            DownloadProgressCircle(
+                summary = summary,
+                badgeAlignment =
+                    if (edge == DockEdge.RIGHT) Alignment.TopStart else Alignment.TopEnd,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                contentAlpha = 1f,
+                contentScale = 1f,
+                containerVisible = isDragging,
+                modifier = Modifier.size(Dimens.gooCircleSize),
+            )
+        }
     }
 }
 

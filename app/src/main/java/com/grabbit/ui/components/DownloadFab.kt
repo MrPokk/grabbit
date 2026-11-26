@@ -33,6 +33,7 @@ fun DownloadProgressCircle(
     containerColor: Color = MaterialTheme.colorScheme.primaryContainer,
     contentColor: Color = MaterialTheme.colorScheme.onPrimaryContainer,
     contentAlpha: Float = 1f,
+    contentScale: Float = 1f,
     shadowElevation: Dp = Dimens.xxs,
     containerVisible: Boolean = true,
     modifier: Modifier = Modifier,
@@ -52,10 +53,10 @@ fun DownloadProgressCircle(
                 tonalElevation = Dimens.xxs,
                 shadowElevation = shadowElevation,
             ) {
-                DownloadProgressContent(summary, contentColor, content)
+                DownloadProgressContent(summary, contentColor, content, contentScale)
             }
         } else {
-            DownloadProgressContent(summary, contentColor, content)
+            DownloadProgressContent(summary, contentColor, content, contentScale)
         }
         if (summary.count > 1) {
             Badge(
@@ -78,6 +79,7 @@ private fun DownloadProgressContent(
     summary: QueueSummary,
     contentColor: Color,
     modifier: Modifier = Modifier,
+    contentScale: Float = 1f,
 ) {
     Box(modifier, contentAlignment = Alignment.Center) {
         val ring =
@@ -107,7 +109,9 @@ private fun DownloadProgressContent(
                     summary.count,
                 ),
             tint = contentColor,
-            modifier = Modifier.size(Dimens.gooIconSize),
+            modifier = Modifier
+                .size(Dimens.gooIconSize)
+                .graphicsLayer { scaleX = contentScale; scaleY = contentScale },
         )
     }
 }
