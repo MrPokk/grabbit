@@ -32,9 +32,13 @@ val majorVersion = versionProperties.getProperty("MAJOR").toInt()
 val minorVersion = versionProperties.getProperty("MINOR").toInt()
 val lastBuild = versionProperties.getProperty("BUILD").toInt()
 val skipVersionBump = providers.gradleProperty("skipVersionBump").isPresent
-val buildVersion = if (skipVersionBump) lastBuild else lastBuild + 1
-val versionNameValue = "$majorVersion.$minorVersion.$buildVersion"
-val versionPropertiesContent = "MAJOR=$majorVersion\nMINOR=$minorVersion\nBUILD=$buildVersion\n"
+// Increment build, but if it reaches 15, bump minor and reset build to 1
+val bumpMinor = lastBuild >= 15 && !skipVersionBump
+val newMinor = if (bumpMinor) minorVersion + 1 else minorVersion
+val newBuild = if (bumpMinor) 1 else lastBuild + 1
+val versionNameValue = "$majorVersion.$newMinor.$newBuild"
+val versionCode = newBuild
+val versionPropertiesContent = "MAJOR=$majorVersion\nMINOR=$newMinor\nBUILD=$newBuild\n"
 
 tasks.register("bumpVersion") {
     val propertiesFile = versionPropertiesFile
@@ -99,7 +103,7 @@ android {
         applicationId = "com.grabbit"
         minSdk = 26
         targetSdk = 36
-        versionCode = buildVersion
+        versionCode = newBuild
         versionName = versionNameValue
 
         vectorDrawables.useSupportLibrary = true
