@@ -1,7 +1,5 @@
 package com.grabbit.data.search
 
-import com.grabbit.R
-import com.grabbit.core.AppError
 import com.grabbit.core.AppLog
 import com.grabbit.core.ErrorMapper
 import com.grabbit.core.Limits
@@ -12,7 +10,7 @@ import com.grabbit.data.ytdlp.YtDlpEngine
 import kotlinx.coroutines.CancellationException
 import javax.inject.Inject
 
-private const val TAG = "MediaSearch"
+private const val TAG = "YouTubeSearch"
 
 /** Platform search URLs understood by yt-dlp. */
 object SearchTargets {
@@ -23,10 +21,8 @@ object SearchTargets {
     ): String = "ytsearch${limit.coerceIn(1, Limits.MAX_SEARCH_RESULTS)}:${query.trim()}"
 }
 
-/** Searches through yt-dlp's search extractors. Only YouTube exposes a general
- * search extractor; other platforms return a user-facing unsupported error.
- */
-class YtDlpMediaSearchProvider
+/** Searches YouTube through yt-dlp's `ytsearch` extractor. */
+class YouTubeMediaSearchProvider
     @Inject
     constructor(
         private val ytDlp: YtDlpEngine,
@@ -40,26 +36,9 @@ class YtDlpMediaSearchProvider
         ): List<MediaSearchResult> {
             val trimmed = query.trim()
             if (trimmed.isEmpty()) return emptyList()
-            if (!supports(platform)) {
-                throw SearchException(AppError(R.string.error_search_unsupported))
-            }
             val target = SearchTargets.youtube(trimmed, limit)
             return try {
-                val collection = ytDlp.fetch(target, loadMixAsPlaylist = false) as? FetchedMedia.Collection
-                collection
-                    ?.items
-                    .orEmpty()
-                    .map { item ->
-                        MediaSearchResult(
-                            platform = platform,
-                            id = item.id,
-                            title = item.title,
-                            url = item.url,
-                            thumbnail = item.thumbnail ?: collection?.thumbnail,
-                            durationSeconds = item.durationSeconds,
-                            uploader = collection?.uploader,
-                        )
-                    }
+                ytDlp.fetch(target, loadMixAsPlaylist = false).toSearchResults(platform)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: InfoException) {
@@ -69,4 +48,33 @@ class YtDlpMediaSearchProvider
                 throw SearchException(ErrorMapper.fromThrowable(e), e)
             }
         }
+    }
+
+internal fun FetchedMedia.toSearchResults(platform: MediaPlatform): List<MediaSearchResult> =
+    when (this) {
+        is FetchedMedia.Single ->
+            listOf(
+                MediaSearchResult(
+                    platform = platform,
+                    id = info.id,
+                    title = info.title,
+                    url = info.url,
+                    thumbnail = info.thumbnail,
+                    durationSeconds = info.durationSeconds,
+                    uploader = info.uploader,
+                ),
+            )
+
+        is FetchedMedia.Collection ->
+            items.map { item ->
+                MediaSearchResult(
+                    platform = platform,
+                    id = item.id,
+                    title = item.title,
+                    url = item.url,
+                    thumbnail = item.thumbnail ?: thumbnail,
+                    durationSeconds = item.durationSeconds,
+                    uploader = uploader,
+                )
+            }
     }

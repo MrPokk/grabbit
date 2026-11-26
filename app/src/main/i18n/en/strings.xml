@@ -70,7 +70,7 @@
     <string name="error_outdated">yt-dlp may be out of date. Update it in Settings and try again.</string>
     <string name="error_private">This video is private. Import cookies in Settings to access it.</string>
     <string name="error_removed">The video was removed or the link is wrong.</string>
-    <string name="error_search_unsupported">Search is not available for this platform yet.</string>
+    <string name="error_search_failed">Search failed. Check your connection and try again.</string>
     <string name="error_storage">Not enough space, or the folder is not writable.</string>
     <string name="error_title">Something went wrong</string>
     <string name="error_unavailable">This video is unavailable.</string>

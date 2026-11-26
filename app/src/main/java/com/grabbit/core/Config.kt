@@ -24,6 +24,7 @@ object Timing {
 
     const val PLATFORM_TRANSITION_DURATION_MS = 320
     const val PLATFORM_COLOR_DURATION_MS = 300
+    const val SEARCH_HTTP_TIMEOUT_MS = 15_000
 
     const val SECONDS_PER_MINUTE = 60
     const val MINUTES_PER_HOUR = 60
@@ -47,6 +48,7 @@ object Limits {
     const val MAX_PLAYLIST_ITEMS = 200
     const val MIX_PLAYLIST_END = 50
     const val MAX_SEARCH_RESULTS = 20
+    const val MAX_HASHTAG_LENGTH = 50
     const val ERROR_TECHNICAL_TAIL_CHARS = 1200
     const val ERROR_TECHNICAL_DETAIL_CHARS = 600
 

@@ -72,7 +72,7 @@
     <string name="error_outdated">Возможно, yt-dlp устарел. Обновите его в настройках и повторите.</string>
     <string name="error_private">Это приватное видео. Импортируйте cookies в настройках.</string>
     <string name="error_removed">Видео удалено или ссылка неверна.</string>
-    <string name="error_search_unsupported">Поиск для этой платформы пока недоступен.</string>
+    <string name="error_search_failed">Поиск не удался. Проверьте соединение и попробуйте снова.</string>
     <string name="error_storage">Не хватает места или папка недоступна для записи.</string>
     <string name="error_title">Что-то пошло не так</string>
     <string name="error_unavailable">Видео недоступно.</string>
