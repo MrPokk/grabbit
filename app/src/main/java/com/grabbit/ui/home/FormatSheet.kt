@@ -74,7 +74,9 @@ fun FormatSheet(
     var mediaType by remember { mutableStateOf(initial.mediaType) }
     var videoHeight by remember { mutableStateOf(initial.maxHeight) }
     var saveFolderUri by remember { mutableStateOf<String?>(defaults.customFolderUri) }
-    var saveFolderName by remember { mutableStateOf(folderDisplayName(context, Uri.parse(defaults.customFolderUri))) }
+    var saveFolderName by remember {
+        mutableStateOf(defaults.customFolderUri?.let { folderDisplayName(context, Uri.parse(it)) })
+    }
     var fileName by remember { mutableStateOf(if (!isPlaylist) media.title else "") }
 
     val folderPicker =
@@ -260,7 +262,7 @@ fun FormatSheet(
                             mediaType = mediaType,
                             maxHeight = if (mediaType == MediaType.VIDEO) videoHeight else 0,
                             saveFolderUri = saveFolderUri.takeIf { it?.isNotBlank() == true },
-                            fileName = fileName.takeIf { it?.isNotBlank() == true },
+                            fileName = fileName.takeIf { it.isNotBlank() },
                         ),
                     )
                 },
