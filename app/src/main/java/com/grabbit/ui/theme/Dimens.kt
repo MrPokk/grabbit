@@ -17,6 +17,12 @@ object Dimens {
     val iconLg: Dp = 56.dp
     val iconButton: Dp = 48.dp
 
+    /** Top gap of the floating queue panel card-window. */
+    val queuePanelTopPadding: Dp = 16.dp
+
+    /** Bottom gap of the floating queue panel card-window; keeps the bar visible underneath. */
+    val queuePanelBottomPadding: Dp = 32.dp
+
     val platformTrailingOffset: Dp = 2.dp
 
     val gooCircleSize: Dp = 36.dp

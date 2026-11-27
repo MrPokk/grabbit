@@ -7,6 +7,7 @@ import android.os.Environment
 import android.provider.DocumentsContract
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -15,15 +16,18 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -57,6 +61,7 @@ private const val TAG = "FormatSheet"
 private const val PRIMARY_STORAGE_VOLUME = "primary"
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Suppress("LongMethod") // UI sheet; splitting threads many state parameters and harms clarity.
 @Composable
 fun FormatSheet(
     media: FetchedMedia,
@@ -99,104 +104,137 @@ fun FormatSheet(
             }
         }
 
+    var advancedExpanded by remember { mutableStateOf(false) }
+
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = Dimens.lg)
-                    .padding(bottom = Dimens.iconMd),
-            verticalArrangement = Arrangement.spacedBy(Dimens.xs),
-        ) {
-            Text(
-                text = stringResource(R.string.sheet_title),
-                style = MaterialTheme.typography.titleLarge,
-            )
-
-            Row(horizontalArrangement = Arrangement.spacedBy(Dimens.xs)) {
-                FilterChip(
-                    selected = mediaType == MediaType.VIDEO,
-                    onClick = {
-                        mediaType = MediaType.VIDEO
-                    },
-                    label = { Text(stringResource(R.string.tab_video)) },
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = Dimens.lg),
+                verticalArrangement = Arrangement.spacedBy(Dimens.xxs),
+            ) {
+                Text(
+                    text = stringResource(R.string.sheet_title),
+                    style = MaterialTheme.typography.titleLarge,
                 )
-                FilterChip(
-                    selected = mediaType == MediaType.AUDIO,
-                    onClick = {
-                        mediaType = MediaType.AUDIO
-                    },
-                    label = { Text(stringResource(R.string.tab_audio)) },
-                )
+
+                Row(horizontalArrangement = Arrangement.spacedBy(Dimens.xs)) {
+                    FilterChip(
+                        selected = mediaType == MediaType.VIDEO,
+                        onClick = {
+                            mediaType = MediaType.VIDEO
+                        },
+                        label = { Text(stringResource(R.string.tab_video)) },
+                    )
+                    FilterChip(
+                        selected = mediaType == MediaType.AUDIO,
+                        onClick = {
+                            mediaType = MediaType.AUDIO
+                        },
+                        label = { Text(stringResource(R.string.tab_audio)) },
+                    )
+                }
+
+                if (mediaType == MediaType.VIDEO) {
+                    Label(stringResource(R.string.label_resolution))
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(Dimens.xs),
+                    ) {
+                        heights.forEach { option ->
+                            FilterChip(
+                                selected = videoHeight == option,
+                                onClick = { videoHeight = option },
+                                label = { Text("${option}p") },
+                            )
+                        }
+                    }
+                    Label(stringResource(R.string.label_container))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.xs)) {
+                        UiValues.CONTAINERS.forEach { option ->
+                            FilterChip(
+                                selected = options.container == option,
+                                onClick = { options = options.copy(container = option) },
+                                label = { Text(option.uppercase()) },
+                            )
+                        }
+                    }
+                } else {
+                    Label(stringResource(R.string.label_audio_format))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.xs)) {
+                        UiValues.AUDIO_FORMATS.forEach { option ->
+                            FilterChip(
+                                selected = options.audioFormat == option,
+                                onClick = { options = options.copy(audioFormat = option) },
+                                label = { Text(option.uppercase()) },
+                            )
+                        }
+                    }
+                    Label(stringResource(R.string.label_bitrate))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.xs)) {
+                        UiValues.BITRATES.forEach { option ->
+                            FilterChip(
+                                selected = options.audioBitrate == option,
+                                onClick = { options = options.copy(audioBitrate = option) },
+                                label = { Text(stringResource(R.string.bitrate_kbps, option)) },
+                            )
+                        }
+                    }
+                }
+
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(MaterialTheme.shapes.medium)
+                                .clickable { advancedExpanded = !advancedExpanded }
+                                .padding(vertical = Dimens.xxs),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.label_advanced),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Icon(
+                            imageVector =
+                                if (advancedExpanded) {
+                                    Icons.Rounded.KeyboardArrowUp
+                                } else {
+                                    Icons.Rounded.KeyboardArrowDown
+                                },
+                            contentDescription = null,
+                        )
+                    }
+                    AnimatedVisibility(visible = advancedExpanded) {
+                        Column(verticalArrangement = Arrangement.spacedBy(Dimens.xxs)) {
+                            HorizontalDivider(Modifier.padding(vertical = Dimens.xxs))
+                            ExtrasSection(options = options, onOptionsChange = { options = it })
+
+                            HorizontalDivider(Modifier.padding(vertical = Dimens.xxs))
+                            SaveLocationSection(
+                                saveFolderPath = saveFolderPath,
+                                hasCustomFolder = saveFolderUri != null,
+                                onPickFolder = { folderPicker.launch(null) },
+                                onClearFolder = {
+                                    saveFolderUri = null
+                                    saveFolderPath = null
+                                },
+                            )
+
+                            if (!isPlaylist) {
+                                HorizontalDivider(Modifier.padding(vertical = Dimens.xxs))
+                                FileNameSection(fileName = fileName, onFileNameChange = { fileName = it })
+                            }
+                        }
+                    }
+                }
             }
-
-            if (mediaType == MediaType.VIDEO) {
-                Label(stringResource(R.string.label_resolution))
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(Dimens.xs),
-                ) {
-                    heights.forEach { option ->
-                        FilterChip(
-                            selected = videoHeight == option,
-                            onClick = { videoHeight = option },
-                            label = { Text("${option}p") },
-                        )
-                    }
-                }
-                Label(stringResource(R.string.label_container))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.xs)) {
-                    UiValues.CONTAINERS.forEach { option ->
-                        FilterChip(
-                            selected = options.container == option,
-                            onClick = { options = options.copy(container = option) },
-                            label = { Text(option.uppercase()) },
-                        )
-                    }
-                }
-            } else {
-                Label(stringResource(R.string.label_audio_format))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.xs)) {
-                    UiValues.AUDIO_FORMATS.forEach { option ->
-                        FilterChip(
-                            selected = options.audioFormat == option,
-                            onClick = { options = options.copy(audioFormat = option) },
-                            label = { Text(option.uppercase()) },
-                        )
-                    }
-                }
-                Label(stringResource(R.string.label_bitrate))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.xs)) {
-                    UiValues.BITRATES.forEach { option ->
-                        FilterChip(
-                            selected = options.audioBitrate == option,
-                            onClick = { options = options.copy(audioBitrate = option) },
-                            label = { Text(stringResource(R.string.bitrate_kbps, option)) },
-                        )
-                    }
-                }
-            }
-
-            HorizontalDivider(Modifier.padding(vertical = Dimens.xxs))
-            ExtrasSection(options = options, onOptionsChange = { options = it })
-
-            HorizontalDivider(Modifier.padding(vertical = Dimens.xxs))
-            SaveLocationSection(
-                saveFolderPath = saveFolderPath,
-                hasCustomFolder = saveFolderUri != null,
-                onPickFolder = { folderPicker.launch(null) },
-                onClearFolder = {
-                    saveFolderUri = null
-                    saveFolderPath = null
-                },
-            )
-
-            if (!isPlaylist) {
-                HorizontalDivider(Modifier.padding(vertical = Dimens.xxs))
-                FileNameSection(fileName = fileName, onFileNameChange = { fileName = it })
-            }
-
-            Spacer(Modifier.height(Dimens.xs))
+            HorizontalDivider()
             Button(
                 onClick = {
                     onConfirm(
@@ -208,7 +246,11 @@ fun FormatSheet(
                         ),
                     )
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = Dimens.lg)
+                        .padding(top = Dimens.xs, bottom = Dimens.iconMd),
             ) {
                 Text(stringResource(R.string.action_start_download))
             }

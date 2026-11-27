@@ -102,6 +102,7 @@
     <string name="label_audio_format">Формат</string>
     <string name="label_bitrate">Битрейт</string>
     <string name="label_container">Контейнер</string>
+    <string name="label_advanced">Расширенные</string>
     <string name="label_extras">Дополнительно</string>
     <string name="label_resolution">Разрешение</string>
     <plurals name="mix_toggle_desc">

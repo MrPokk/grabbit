@@ -80,9 +80,9 @@ fun DownloadQueuePanel(
                             .fillMaxSize()
                             .padding(
                                 start = Dimens.md,
-                                top = Dimens.md,
+                                top = Dimens.queuePanelTopPadding,
                                 end = Dimens.md,
-                                bottom = Dimens.xl * 2,
+                                bottom = Dimens.queuePanelBottomPadding,
                             ),
                     shape = MaterialTheme.shapes.large,
                     color = MaterialTheme.colorScheme.surfaceContainerHigh,
