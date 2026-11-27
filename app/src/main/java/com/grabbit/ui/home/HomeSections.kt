@@ -98,6 +98,7 @@ internal fun LazyListScope.homeMediaContent(
                         PreviewCard(
                             media = media,
                             settings = settings,
+                            engineUsed = state.engineUsed,
                             onChooseFormat = viewModel::openSheet,
                             onQuickDownload = viewModel::quickDownload,
                             onMediaTypeChange = viewModel::setQuickMediaType,
@@ -117,7 +118,7 @@ internal fun LazyListScope.homeMediaContent(
             item(key = "collection") {
                 ListItemTransition {
                     Column(verticalArrangement = Arrangement.spacedBy(Dimens.xs)) {
-                        CollectionCard(media = media)
+                        CollectionCard(media = media, engineUsed = state.engineUsed)
                         if (Links.isRadioPlaylist(state.urlForPlaylistToggle)) {
                             MixToggleCard(
                                 checked = state.loadAsMix,
@@ -242,6 +243,7 @@ internal fun LinkPreviewCard(
 internal fun PreviewCard(
     media: FetchedMedia.Single,
     settings: AppSettings,
+    engineUsed: String?,
     onChooseFormat: () -> Unit,
     onQuickDownload: () -> Unit,
     onMediaTypeChange: (MediaType) -> Unit,
@@ -277,6 +279,9 @@ internal fun PreviewCard(
                             media.info.formats.size,
                         ),
                     )
+                    engineUsed?.let { name ->
+                        MetaChip(text = name)
+                    }
                 }
                 QuickDownloadControls(
                     mediaType = settings.quickMediaType,
@@ -295,7 +300,10 @@ internal fun PreviewCard(
 }
 
 @Composable
-internal fun CollectionCard(media: FetchedMedia.Collection) {
+internal fun CollectionCard(
+    media: FetchedMedia.Collection,
+    engineUsed: String? = null,
+) {
     Card(Modifier.fillMaxWidth()) {
         Row(Modifier.padding(Dimens.md)) {
             Thumbnail(
@@ -318,7 +326,10 @@ internal fun CollectionCard(media: FetchedMedia.Collection) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Spacer(Modifier.height(Dimens.xxs))
+                engineUsed?.let { name ->
+                    MetaChip(text = name)
+                    Spacer(Modifier.height(Dimens.xxs))
+                }
                 MetaChip(pluralStringResource(R.plurals.playlist_items, media.items.size, media.items.size))
                 if (media.truncated) {
                     Text(

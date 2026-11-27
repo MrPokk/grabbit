@@ -69,6 +69,8 @@ data class FormatInfo(
     val tbr: Double,
     val fileSize: Long,
     val note: String?,
+    // Direct stream URL when the engine can hand it out; null for engines that re-resolve at download time.
+    val url: String? = null,
 ) {
     val isVideo: Boolean get() = !vcodec.isNullOrBlank() && vcodec != "none"
     val isAudio: Boolean get() = !acodec.isNullOrBlank() && acodec != "none" && !isVideo

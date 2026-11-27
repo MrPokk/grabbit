@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_extraction_engine">Движок извлечения</string>
+    <string name="extraction_engine_auto">Авто (гибрид)</string>
+    <string name="extraction_engine_ytdlp_only">Только yt-dlp</string>
+    <string name="settings_legal_newpipe">Приложение может использовать NewPipeExtractor для извлечения данных с YouTube. NewPipeExtractor — свободное ПО под лицензией GNU GPL-3.0; это может налагать обязательства на комбинированное произведение. Исходники: https://github.com/TeamNewPipe/NewPipeExtractor</string>
+    <string name="settings_legal_newpipe_attribution">NewPipeExtractor © Team NewPipe, GPL-3.0.</string>
+</resources>

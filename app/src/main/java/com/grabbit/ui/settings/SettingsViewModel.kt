@@ -13,6 +13,7 @@ import com.grabbit.core.Limits
 import com.grabbit.core.Storage
 import com.grabbit.core.stateInUi
 import com.grabbit.core.suspendRunCatching
+import com.grabbit.data.extract.ExtractionEnginePreference
 import com.grabbit.data.settings.AppSettings
 import com.grabbit.data.settings.SettingsRepository
 import com.grabbit.data.settings.ThemeMode
@@ -112,6 +113,9 @@ class SettingsViewModel
         fun setEmbedMetadata(enabled: Boolean) = viewModelScope.launch { repository.setEmbedMetadata(enabled) }
 
         fun setSubtitles(enabled: Boolean) = viewModelScope.launch { repository.setSubtitles(enabled) }
+
+        fun setExtractionEngine(preference: ExtractionEnginePreference) =
+            viewModelScope.launch { repository.setExtractionEngine(preference) }
 
         fun setSponsorBlock(enabled: Boolean) = viewModelScope.launch { repository.setSponsorBlock(enabled) }
 

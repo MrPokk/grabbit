@@ -13,6 +13,7 @@ import com.grabbit.core.Links
 import com.grabbit.core.MediaPlatform
 import com.grabbit.core.stateInUi
 import com.grabbit.data.download.DownloadRepository
+import com.grabbit.data.extract.EngineRouter
 import com.grabbit.data.preview.LinkPreview
 import com.grabbit.data.preview.OEmbedPreviewProvider
 import com.grabbit.data.search.MediaSearchProvider
@@ -41,11 +42,13 @@ internal const val HOME_TAG = "HomeViewModel"
 private const val FETCH_DEBOUNCE_MS = 300L
 
 @HiltViewModel
+@Suppress("LongParameterList")
 class HomeViewModel
     @Inject
     constructor(
         @ApplicationContext private val context: Context,
         internal val ytDlp: YtDlpEngine,
+        internal val engine: EngineRouter,
         internal val downloads: DownloadRepository,
         internal val settingsRepository: SettingsRepository,
         private val searchProvider: MediaSearchProvider,
@@ -66,6 +69,7 @@ class HomeViewModel
             val searchResults: List<MediaSearchResult> = emptyList(),
             val searchError: AppError? = null,
             val preview: LinkPreview? = null,
+            val engineUsed: String? = null,
         )
 
         private val _state = MutableStateFlow(UiState())
@@ -311,6 +315,7 @@ class HomeViewModel
                     error = null,
                     media = null,
                     searchError = null,
+                    engineUsed = null,
                 )
             }
             fetchJob = viewModelScope.launch { launchFetch(url, processId) }
@@ -322,7 +327,7 @@ class HomeViewModel
         ) {
             try {
                 val loadAsMix = _state.value.loadAsMix
-                val media = ytDlp.fetch(url, loadAsMix, processId, trace = trace)
+                val media = engine.fetch(url, loadAsMix, processId, trace = trace)
                 if (fetchProcessId != processId) return
                 val selected =
                     (media as? FetchedMedia.Collection)
@@ -331,7 +336,8 @@ class HomeViewModel
                         ?.toSet()
                         .orEmpty()
                 val updateStartedAt = FetchTrace.startedAt()
-                _state.update { it.copy(media = media, selectedIndices = selected) }
+                val engineName = trace?.engine?.takeIf { it.isNotBlank() }
+                _state.update { it.copy(media = media, selectedIndices = selected, engineUsed = engineName) }
                 trace?.record(FetchStage.STATE_UPDATE, FetchTrace.sinceMs(updateStartedAt))
             } catch (e: CancellationException) {
                 throw e
@@ -370,7 +376,7 @@ class HomeViewModel
             if (fetchJob == null && fetchProcessId == null) return
             fetchJob?.cancel()
             fetchJob = null
-            fetchProcessId?.let(ytDlp::cancelFetch)
+            fetchProcessId?.let(engine::cancelFetch)
             fetchProcessId = null
             _state.update { it.copy(loading = false) }
         }

@@ -195,5 +195,18 @@ internal fun AboutSection() {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(Dimens.md),
         )
+        HorizontalDivider()
+        Text(
+            text = stringResource(R.string.settings_legal_newpipe_attribution),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(Dimens.md),
+        )
+        Text(
+            text = stringResource(R.string.settings_legal_newpipe),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(Dimens.md),
+        )
     }
 }

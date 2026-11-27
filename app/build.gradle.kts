@@ -104,6 +104,7 @@ tasks
 android {
     namespace = "com.grabbit"
     compileSdk = 36
+    buildToolsVersion = "36.0.0"
 
     sourceSets {
         getByName("main").res.srcDir("src/main/res")
@@ -174,6 +175,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true
     }
 
     buildFeatures {
@@ -275,6 +277,12 @@ dependencies {
 
     implementation(libs.youtubedl.library)
     implementation(libs.youtubedl.ffmpeg)
+
+    // NewPipeExtractor (GPL-3.0); only com.grabbit.data.newpipe imports org.schabi.newpipe.
+    implementation(libs.newpipe.extractor)
+    implementation(libs.okhttp)
+
+    coreLibraryDesugaring(libs.desugar.jdk.libs)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.ext.junit)

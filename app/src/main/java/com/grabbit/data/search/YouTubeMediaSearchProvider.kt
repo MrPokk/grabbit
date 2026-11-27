@@ -35,7 +35,17 @@ class YouTubeMediaSearchProvider
             if (trimmed.isEmpty()) return emptyList()
             val target = SearchTargets.youtube(trimmed, limit)
             return try {
-                ytDlp.fetch(target, loadMixAsPlaylist = false).toSearchResults(platform)
+                ytDlp
+                    .fetch(
+                        target,
+                        loadMixAsPlaylist = false,
+                        processId =
+                            java.util.UUID
+                                .randomUUID()
+                                .toString(),
+                        bypassCache = false,
+                        trace = null,
+                    ).toSearchResults(platform)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: InfoException) {

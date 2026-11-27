@@ -15,6 +15,7 @@ import com.grabbit.core.MimeTypes
 import com.grabbit.core.Timing
 import com.grabbit.data.convert.FfmpegRunner
 import com.grabbit.data.db.HistoryEntity
+import com.grabbit.data.extract.EngineRouter
 import com.grabbit.data.media.MediaSaver
 import com.grabbit.data.settings.SettingsRepository
 import com.grabbit.data.ytdlp.DownloadCancelledException
@@ -23,7 +24,6 @@ import com.grabbit.data.ytdlp.DownloadSpec
 import com.grabbit.data.ytdlp.FetchedMedia
 import com.grabbit.data.ytdlp.InfoException
 import com.grabbit.data.ytdlp.YtDlpEngine
-import com.yausername.youtubedl_android.YoutubeDL
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -53,11 +53,13 @@ private val SPEED_REGEX = Regex("""\d+(?:\.\d+)?\s*[KMGT]?i?B/s""")
 private fun DownloadTask.idle() = copy(speed = null, etaSeconds = null)
 
 @Singleton
+@Suppress("LongParameterList")
 class DownloadEngine
     @Inject
     constructor(
         @ApplicationContext private val context: Context,
         private val ytDlp: YtDlpEngine,
+        private val engine: EngineRouter,
         private val settings: SettingsRepository,
         private val saver: MediaSaver,
         private val ffmpeg: FfmpegRunner,
@@ -129,7 +131,7 @@ class DownloadEngine
         ) {
             update(id) { it.idle().copy(status = status) }
             try {
-                YoutubeDL.getInstance().destroyProcessById(id)
+                engine.cancelDownload(id)
             } catch (e: SecurityException) {
                 AppLog.e(TAG, "could not destroy the download process", e)
             }
@@ -297,7 +299,7 @@ class DownloadEngine
         ): File {
             val progress = { p: Float, eta: Long, line: String -> onProgress(id, p, eta, line) }
             return try {
-                ytDlp.download(spec, progress)
+                engine.download(spec, progress)
             } catch (e: DownloadException) {
                 if (retried) throw e
                 val refreshed = refreshedSpecAfterFailure(spec, e)
@@ -316,8 +318,15 @@ class DownloadEngine
             AppLog.d(TAG) { "cached info expired, re-fetching once: ${spec.url}" }
             infoCache.discard(stale)
             val fresh =
-                (ytDlp.fetch(spec.url, loadMixAsPlaylist = false, bypassCache = true) as? FetchedMedia.Single)
-                    ?.takeIf { infoCache.isFresh(it.infoJsonPath, it.infoFetchedAtMs) }
+                (
+                    ytDlp.fetch(
+                        spec.url,
+                        loadMixAsPlaylist = false,
+                        processId = UUID.randomUUID().toString(),
+                        bypassCache = true,
+                        trace = null,
+                    ) as? FetchedMedia.Single
+                )?.takeIf { infoCache.isFresh(it.infoJsonPath, it.infoFetchedAtMs) }
                     ?.infoJsonPath
             return spec.copy(infoJsonPath = fresh)
         }

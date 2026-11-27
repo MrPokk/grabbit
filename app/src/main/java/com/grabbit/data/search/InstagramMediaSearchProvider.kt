@@ -39,8 +39,16 @@ class InstagramMediaSearchProvider
             val url = "https://www.instagram.com/explore/tags/$tag/"
             return try {
                 ytDlp
-                    .fetch(url, loadMixAsPlaylist = false)
-                    .toSearchResults(platform)
+                    .fetch(
+                        url,
+                        loadMixAsPlaylist = false,
+                        processId =
+                            java.util.UUID
+                                .randomUUID()
+                                .toString(),
+                        bypassCache = false,
+                        trace = null,
+                    ).toSearchResults(platform)
                     .take(limit)
             } catch (e: CancellationException) {
                 throw e

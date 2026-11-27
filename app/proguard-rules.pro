@@ -51,3 +51,16 @@
 -keepclassmembers class * {
     native <methods>;
 }
+
+# NewPipeExtractor (GPL-3.0) uses reflection for extractors/services and bundled JS (Rhino).
+-keep class org.schabi.newpipe.extractor.** { *; }
+-dontwarn org.schabi.newpipe.extractor.**
+-keep class org.mozilla.javascript.** { *; }
+-dontwarn org.mozilla.javascript.**
+-dontwarn org.mozilla.rhino.**
+-dontwarn com.google.protobuf.**
+-keep class com.github.TeamNewPipe.nanojson.** { *; }
+-dontwarn com.github.TeamNewPipe.nanojson.**
+# OkHttp/Okio are used directly by our NewPipeExtractor Downloader.
+-dontwarn okhttp3.**
+-dontwarn okio.**
