@@ -8,6 +8,7 @@ import com.grabbit.core.AppError
 import com.grabbit.core.AppLog
 import com.grabbit.core.Defaults
 import com.grabbit.core.ErrorMapper
+import com.grabbit.core.ErrorSignals
 import com.grabbit.core.Formatting
 import com.grabbit.core.Limits
 import com.grabbit.core.MimeTypes
@@ -20,6 +21,8 @@ import com.grabbit.data.settings.SettingsRepository
 import com.grabbit.data.ytdlp.DownloadCancelledException
 import com.grabbit.data.ytdlp.DownloadException
 import com.grabbit.data.ytdlp.DownloadSpec
+import com.grabbit.data.ytdlp.FetchedMedia
+import com.grabbit.data.ytdlp.InfoCacheStore
 import com.grabbit.data.ytdlp.InfoException
 import com.grabbit.data.ytdlp.YtDlpEngine
 import com.yausername.youtubedl_android.YoutubeDL
@@ -54,6 +57,7 @@ private const val TAG = "DownloadEngine"
  * foreground service only exists to keep the process alive and show progress.
  */
 @Singleton
+@Suppress("LongParameterList") // Constructor injection; a parameter holder would only hide the wiring.
 class DownloadEngine
     @Inject
     constructor(
@@ -63,6 +67,7 @@ class DownloadEngine
         private val saver: MediaSaver,
         private val ffmpeg: FfmpegRunner,
         private val historyDao: HistoryDao,
+        private val infoCache: InfoCacheStore,
     ) {
         private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         private val json = Json { ignoreUnknownKeys = true }
@@ -237,6 +242,10 @@ class DownloadEngine
 
             try {
                 val appSettings = settings.current()
+                val infoJsonPath =
+                    task.request.infoJsonPath?.takeIf {
+                        infoCache.isFresh(it, task.request.infoFetchedAtMs)
+                    }
                 val spec =
                     DownloadSpec(
                         taskId = id,
@@ -252,13 +261,11 @@ class DownloadEngine
                             options.saveFolderUri.takeIf { it?.isNotBlank() == true }
                                 ?: appSettings.customFolderUri,
                         fileName = options.fileName,
+                        infoJsonPath = infoJsonPath,
                     )
 
                 update(id) { it.copy(status = TaskStatus.DOWNLOADING) }
-                val output =
-                    ytDlp.download(spec) { progress, eta, line ->
-                        onProgress(id, progress, eta, line)
-                    }
+                val output = downloadWithInfoRetry(id, spec)
 
                 update(id) { it.copy(status = TaskStatus.SAVING, progress = 1f, speed = null, etaSeconds = null) }
                 val mimeType = MimeTypes.forExt(output.extension)
@@ -313,6 +320,35 @@ class DownloadEngine
                     workDir.deleteRecursively()
                 }
                 marker.delete()
+            }
+        }
+
+        /**
+         * Runs the download, reusing the metadata JSON. If the cached format URLs
+         * expired, re-extracts once and retries; other failures are reported as-is.
+         */
+        private suspend fun downloadWithInfoRetry(
+            id: String,
+            spec: DownloadSpec,
+        ): File {
+            try {
+                return ytDlp.download(spec) { progress, eta, line ->
+                    onProgress(id, progress, eta, line)
+                }
+            } catch (e: DownloadException) {
+                val staleInfo = spec.infoJsonPath
+                if (staleInfo == null || !ErrorSignals.isExpiredFormatUrl(e.error.technical)) throw e
+                AppLog.d(TAG) { "cached info expired, re-fetching once: ${spec.url}" }
+                infoCache.discard(staleInfo)
+                val refreshed = ytDlp.fetch(spec.url, loadMixAsPlaylist = false, bypassCache = true)
+                val single = refreshed as? FetchedMedia.Single
+                val freshInfo =
+                    single?.infoJsonPath?.takeIf {
+                        infoCache.isFresh(it, single.infoFetchedAtMs)
+                    }
+                return ytDlp.download(spec.copy(infoJsonPath = freshInfo)) { progress, eta, line ->
+                    onProgress(id, progress, eta, line)
+                }
             }
         }
 

@@ -2,17 +2,20 @@ package com.grabbit.di
 
 import android.content.Context
 import androidx.room.Room
+import com.grabbit.core.Cache
 import com.grabbit.data.db.AppDatabase
 import com.grabbit.data.db.HistoryDao
 import com.grabbit.data.db.Migrations
 import com.grabbit.data.ytdlp.FetchCacheDao
 import com.grabbit.data.ytdlp.FetchCacheDatabase
 import com.grabbit.data.ytdlp.FetchMemoryCache
+import com.grabbit.data.ytdlp.InfoCacheStore
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import java.io.File
 import javax.inject.Singleton
 
 /** Provides the Room database and its DAO to the whole app. */
@@ -49,4 +52,16 @@ object AppModule {
     /** Exposes the fetch cache DAO. */
     @Provides
     fun provideFetchCacheDao(database: FetchCacheDatabase): FetchCacheDao = database.fetchCacheDao()
+
+    /** Raw yt-dlp info files reused by downloads via `--load-info-json`. */
+    @Provides
+    @Singleton
+    fun provideInfoCacheStore(
+        @ApplicationContext context: Context,
+    ): InfoCacheStore =
+        InfoCacheStore(
+            root = File(context.cacheDir, Cache.INFO_DIR),
+            ttlMs = Cache.INFO_JSON_TTL.inWholeMilliseconds,
+            retentionMs = Cache.INFO_JSON_RETENTION.inWholeMilliseconds,
+        )
 }

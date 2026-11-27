@@ -21,7 +21,9 @@ import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
@@ -52,7 +54,9 @@ fun DownloadActionsMenu(
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismiss,
+        shape = MaterialTheme.shapes.large,
     ) {
+        // Работа с файлом.
         DropdownMenuItem(
             text = { Text(stringResource(R.string.action_open)) },
             leadingIcon = { Icon(Icons.Rounded.OpenInNew, contentDescription = null) },
@@ -77,6 +81,8 @@ fun DownloadActionsMenu(
                 onShare()
             },
         )
+        HorizontalDivider()
+        // Управление задачей.
         DropdownMenuItem(
             text = { Text(stringResource(R.string.action_redownload)) },
             leadingIcon = { Icon(Icons.Rounded.Refresh, contentDescription = null) },
@@ -85,6 +91,8 @@ fun DownloadActionsMenu(
                 onRedownload()
             },
         )
+        HorizontalDivider()
+        // Удаление.
         DropdownMenuItem(
             text = { Text(stringResource(R.string.action_remove_from_list)) },
             leadingIcon = { Icon(Icons.Rounded.Close, contentDescription = null) },

@@ -15,13 +15,18 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.grabbit.R
+import com.grabbit.data.search.MediaSearchResult
 import com.grabbit.ui.theme.Dimens
+import kotlinx.coroutines.launch
 
 /** Entry screen for pasting a link, previewing the media and starting a download. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -35,11 +40,31 @@ fun HomeScreen(
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     val listState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    // A picked result fetches its metadata above the results list: hide the keyboard and
+    // return to the top so the preview/loading card is visible.
+    val onOpenSearchResult: (MediaSearchResult) -> Unit = { result ->
+        focusManager.clearFocus()
+        keyboardController?.hide()
+        viewModel.openSearchResult(result)
+        coroutineScope.launch { listState.animateScrollToItem(0) }
+    }
 
     LaunchedEffect(incomingLink) {
         if (!incomingLink.isNullOrBlank()) {
             viewModel.acceptSharedLink(incomingLink)
             onLinkConsumed()
+        }
+    }
+
+    // The first card on screen marks the end of the link → preview flow for the timing log.
+    LaunchedEffect(state.preview != null, state.media != null) {
+        when {
+            state.media != null -> viewModel.onPreviewShown(hasMedia = true)
+            state.preview != null -> viewModel.onPreviewShown(hasMedia = false)
         }
     }
 
@@ -67,7 +92,12 @@ fun HomeScreen(
                 ),
             verticalArrangement = Arrangement.spacedBy(Dimens.sm),
         ) {
-            homeMediaContent(state, settings, viewModel)
+            homeMediaContent(
+                state = state,
+                settings = settings,
+                viewModel = viewModel,
+                onOpenSearchResult = onOpenSearchResult,
+            )
         }
 
         UrlCard(

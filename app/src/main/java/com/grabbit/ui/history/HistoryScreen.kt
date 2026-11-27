@@ -59,6 +59,7 @@ import com.grabbit.ui.components.DeleteConfirmationDialog
 import com.grabbit.ui.components.DeleteMode
 import com.grabbit.ui.components.DownloadActionsMenu
 import com.grabbit.ui.components.EmptyState
+import com.grabbit.ui.components.ListItemTransition
 import com.grabbit.ui.components.Thumbnail
 import com.grabbit.ui.components.openSavedFile
 import com.grabbit.ui.components.shareSavedFile
@@ -138,17 +139,19 @@ fun HistoryScreen(viewModel: HistoryViewModel = hiltViewModel()) {
                 verticalArrangement = Arrangement.spacedBy(Dimens.xs),
             ) {
                 items(items, key = { it.id }) { entity ->
-                    HistoryRow(
-                        entity = entity,
-                        onOpen = { openSavedFile(context, entity.uri, entity.mimeType) },
-                        onShowInFolder = { showSavedFileInFolder(context, entity.uri) },
-                        onShare = {
-                            shareSavedFile(context, entity.uri, entity.fileName, entity.mimeType)
-                        },
-                        onRedownload = { viewModel.redownload(entity) },
-                        onRemove = { pendingDelete = entity to DeleteMode.REMOVE },
-                        onDelete = { pendingDelete = entity to DeleteMode.DELETE_FILE },
-                    )
+                    ListItemTransition {
+                        HistoryRow(
+                            entity = entity,
+                            onOpen = { openSavedFile(context, entity.uri, entity.mimeType) },
+                            onShowInFolder = { showSavedFileInFolder(context, entity.uri) },
+                            onShare = {
+                                shareSavedFile(context, entity.uri, entity.fileName, entity.mimeType)
+                            },
+                            onRedownload = { viewModel.redownload(entity) },
+                            onRemove = { pendingDelete = entity to DeleteMode.REMOVE },
+                            onDelete = { pendingDelete = entity to DeleteMode.DELETE_FILE },
+                        )
+                    }
                 }
             }
         }

@@ -1,7 +1,6 @@
 package com.grabbit.data.ytdlp
 
 import android.content.Context
-import android.util.LruCache
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Entity
@@ -12,35 +11,56 @@ import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.grabbit.core.AppLog
+import com.grabbit.core.Cache
 import kotlinx.serialization.json.Json
 
-/** In-memory LRU cache for fetch results. */
+/** In-memory LRU cache for fetch results with a short TTL. */
 class FetchMemoryCache(
-    private val maxSize: Int = 20,
+    private val maxSize: Int = Cache.FETCH_MEMORY_ENTRIES,
+    private val ttlMs: Long = Cache.FETCH_TTL.inWholeMilliseconds,
+    private val clock: () -> Long = System::currentTimeMillis,
 ) {
-    private val cache =
-        object : LruCache<String, FetchedMedia>(maxSize) {
-            override fun sizeOf(
-                key: String,
-                value: FetchedMedia,
-            ): Int = 1
-        }
+    private data class Entry(
+        val media: FetchedMedia,
+        val savedAtMs: Long,
+    )
 
-    fun get(key: String): FetchedMedia? = cache.get(key)
+    // accessOrder = true makes the map iterate from the least recently used entry.
+    private val cache = LinkedHashMap<String, Entry>(maxSize, LOAD_FACTOR, true)
+
+    fun get(key: String): FetchedMedia? =
+        synchronized(cache) {
+            val entry = cache[key] ?: return null
+            if (clock() - entry.savedAtMs > ttlMs) {
+                cache.remove(key)
+                return null
+            }
+            entry.media
+        }
 
     fun put(
         key: String,
         value: FetchedMedia,
     ) {
-        cache.put(key, value)
+        synchronized(cache) {
+            cache[key] = Entry(value, clock())
+            while (cache.size > maxSize) {
+                val eldest = cache.keys.firstOrNull() ?: break
+                cache.remove(eldest)
+            }
+        }
     }
 
     fun remove(key: String) {
-        cache.remove(key)
+        synchronized(cache) { cache.remove(key) }
     }
 
     fun clear() {
-        cache.evictAll()
+        synchronized(cache) { cache.clear() }
+    }
+
+    private companion object {
+        const val LOAD_FACTOR = 0.75f
     }
 }
 

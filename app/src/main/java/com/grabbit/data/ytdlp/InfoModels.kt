@@ -14,6 +14,13 @@ sealed interface FetchedMedia {
     @Serializable
     data class Single(
         val info: MediaInfo,
+        /**
+         * Raw `--dump-single-json` output cached for the download, so yt-dlp does not
+         * have to extract the same video twice. `null` when no file was kept.
+         */
+        val infoJsonPath: String? = null,
+        /** Wall-clock time when [infoJsonPath] was written; format URLs expire after a while. */
+        val infoFetchedAtMs: Long = 0L,
     ) : FetchedMedia {
         override val title: String get() = info.title
         override val uploader: String? get() = info.uploader

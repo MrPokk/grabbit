@@ -26,6 +26,8 @@ data class DownloadSpec(
     val saveFolderUri: String? = null,
     /** Custom file name without extension, or `null` to use the filename template. */
     val fileName: String? = null,
+    /** Fresh `--dump-single-json` output; lets yt-dlp skip extracting the link again. */
+    val infoJsonPath: String? = null,
 )
 
 /** Builds yt-dlp requests; option order matters for some multi-argument flags. */
@@ -40,13 +42,18 @@ object RequestFactory {
     fun buildFetchRequest(
         url: String,
         loadMixAsPlaylist: Boolean,
-    ): YoutubeDLRequest = buildFetchRequestWithClient(url, loadMixAsPlaylist, YtDlpArgs.FETCH_PLAYER_CLIENT)
+    ): YoutubeDLRequest =
+        buildFetchRequestWithExtractorArgs(
+            url,
+            loadMixAsPlaylist,
+            "youtube:player_client=${YtDlpArgs.FETCH_PLAYER_CLIENT}",
+        )
 
-    /** Variant that allows specifying the player client for fallback logic. */
-    fun buildFetchRequestWithClient(
+    /** Variant that allows specifying the full YouTube extractor arguments for fallback logic. */
+    fun buildFetchRequestWithExtractorArgs(
         url: String,
         loadMixAsPlaylist: Boolean,
-        playerClient: String,
+        extractorArgs: String,
     ): YoutubeDLRequest =
         YoutubeDLRequest(url).apply {
             addOption("--dump-single-json")
@@ -56,7 +63,7 @@ object RequestFactory {
             addOption("--ignore-config")
             addOption("--socket-timeout", Timing.FETCH_SOCKET_TIMEOUT_SECONDS)
             addOption("--extractor-retries", YtDlpArgs.FETCH_EXTRACTOR_RETRIES)
-            addOption("--extractor-args", "youtube:player_client=$playerClient")
+            addOption("--extractor-args", extractorArgs)
             if (Links.isRadioPlaylist(url)) {
                 if (!loadMixAsPlaylist) {
                     addOption("--no-playlist")
@@ -80,6 +87,9 @@ object RequestFactory {
         request.addOption("--retries", YtDlpArgs.DOWNLOAD_RETRIES)
         request.addOption("--concurrent-fragments", YtDlpArgs.CONCURRENT_FRAGMENTS)
         request.addOption("--socket-timeout", Timing.DOWNLOAD_SOCKET_TIMEOUT_SECONDS)
+
+        // Reuse the metadata extraction: the URL argument is ignored by yt-dlp in this mode.
+        spec.infoJsonPath?.let { path -> request.addOption("--load-info-json", path) }
 
         // --print-to-file takes TEMPLATE and FILE. They must be consecutive
         // arguments: two separate addOption calls make yt-dlp read the second

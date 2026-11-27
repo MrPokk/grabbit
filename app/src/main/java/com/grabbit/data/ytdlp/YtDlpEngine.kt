@@ -4,7 +4,10 @@ import android.content.Context
 import com.grabbit.R
 import com.grabbit.core.AppError
 import com.grabbit.core.AppLog
+import com.grabbit.core.Cache
 import com.grabbit.core.ErrorMapper
+import com.grabbit.core.FetchStage
+import com.grabbit.core.FetchTrace
 import com.grabbit.core.Links
 import com.grabbit.core.Timing
 import com.grabbit.core.YtDlpArgs
@@ -29,12 +32,6 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 private const val TAG = "YtDlpEngine"
-
-// Cache TTL: 5 minutes
-private const val FETCH_CACHE_TTL_MS = 5 * 60 * 1000L
-
-// Evict entries older than 4x TTL (20 minutes) to allow some grace period
-private const val FETCH_CACHE_EVICT_MULTIPLIER = 4
 
 /** yt-dlp metadata parsing failed; [error] is safe to show in the UI. */
 class InfoException(
@@ -76,6 +73,7 @@ class YtDlpEngine
         private val settings: SettingsRepository,
         private val memoryCache: FetchMemoryCache,
         private val cacheDao: FetchCacheDao,
+        private val infoCache: InfoCacheStore,
     ) {
         private val initLock = Mutex()
 
@@ -108,63 +106,57 @@ class YtDlpEngine
          * Extracts metadata. [loadMixAsPlaylist] turns a YouTube Mix/radio URL
          * into a bounded playlist (`--playlist-end`); otherwise such URLs resolve
          * to the single video.
+         *
+         * [bypassCache] forces a fresh extraction (used when cached format URLs expired).
+         * [trace] receives one entry per stage for the fetch timing log.
          */
         suspend fun fetch(
             url: String,
             loadMixAsPlaylist: Boolean,
             processId: String = UUID.randomUUID().toString(),
+            bypassCache: Boolean = false,
+            trace: FetchTrace? = null,
         ): FetchedMedia {
             val normalizedUrl = Links.normalize(url)
             val cacheKey = "$normalizedUrl|$loadMixAsPlaylist"
 
-            // Check in-memory cache first
-            memoryCache.get(cacheKey)?.let { cached ->
-                AppLog.d(TAG) { "fetch cache hit (memory): $cacheKey" }
-                return cached
-            }
+            if (!bypassCache) {
+                val cacheStartedAt = FetchTrace.startedAt()
+                val memoryHit = memoryCache.get(cacheKey)
+                trace?.record(FetchStage.CACHE_LOOKUP, FetchTrace.sinceMs(cacheStartedAt))
+                if (memoryHit != null) {
+                    AppLog.d(TAG) { "fetch cache hit (memory): $cacheKey" }
+                    return memoryHit
+                }
 
-            // Check persistent cache
-            val cachedEntity = cacheDao.getFresh(cacheKey, System.currentTimeMillis() - FETCH_CACHE_TTL_MS)
-            cachedEntity?.let { entity ->
-                FetchCacheSerializer.fromJson(entity.json)?.let { cached ->
-                    AppLog.d(TAG) { "fetch cache hit (disk): $cacheKey" }
-                    memoryCache.put(cacheKey, cached)
-                    return cached
+                val cachedEntity =
+                    cacheDao.getFresh(
+                        cacheKey,
+                        System.currentTimeMillis() - Cache.FETCH_TTL.inWholeMilliseconds,
+                    )
+                cachedEntity?.let { entity ->
+                    FetchCacheSerializer.fromJson(entity.json)?.let { cached ->
+                        AppLog.d(TAG) { "fetch cache hit (disk): $cacheKey" }
+                        memoryCache.put(cacheKey, cached)
+                        return cached
+                    }
                 }
             }
 
+            val initStartedAt = FetchTrace.startedAt()
             ensureInitialized()
-            // Try primary player client, then fallback
-            val media =
-                try {
-                    withContext(Dispatchers.IO) {
-                        fetchWithClient(normalizedUrl, loadMixAsPlaylist, processId, YtDlpArgs.FETCH_PLAYER_CLIENT)
-                    }
-                } catch (e: InfoException) {
-                    // If primary client fails with extractor error, try fallback
-                    if (e.error.suggestUpdate) {
-                        AppLog.d(TAG) {
-                            "Primary player client failed, trying fallback: " +
-                                YtDlpArgs.FETCH_PLAYER_CLIENT_FALLBACK
-                        }
-                        withContext(Dispatchers.IO) {
-                            fetchWithClient(
-                                normalizedUrl,
-                                loadMixAsPlaylist,
-                                processId,
-                                YtDlpArgs.FETCH_PLAYER_CLIENT_FALLBACK,
-                            )
-                        }
-                    } else {
-                        throw e
-                    }
-                }
+            trace?.record(FetchStage.INIT, FetchTrace.sinceMs(initStartedAt))
+
+            val media = fetchWithFallback(normalizedUrl, loadMixAsPlaylist, processId, trace)
 
             // Cache the result
             memoryCache.put(cacheKey, media)
             cacheDao.put(FetchCacheEntity(cacheKey, FetchCacheSerializer.toJson(media)))
             // Evict old entries periodically
-            cacheDao.evictOlderThan(System.currentTimeMillis() - FETCH_CACHE_TTL_MS * FETCH_CACHE_EVICT_MULTIPLIER)
+            cacheDao.evictOlderThan(
+                System.currentTimeMillis() -
+                    Cache.FETCH_TTL.inWholeMilliseconds * Cache.FETCH_EVICT_MULTIPLIER,
+            )
 
             return media
         }
@@ -181,6 +173,7 @@ class YtDlpEngine
         ): File {
             ensureInitialized()
             return withContext(Dispatchers.IO) {
+                val startedAt = FetchTrace.startedAt()
                 val request = RequestFactory.build(spec)
                 AppLog.d(TAG) { "download command: ${request.buildCommand()}" }
                 try {
@@ -188,7 +181,10 @@ class YtDlpEngine
                         YoutubeDL.getInstance().execute(request, spec.taskId) { progress, eta, line ->
                             onProgress(progress, eta, line)
                         }
-                    AppLog.d(TAG) { "download exit=${response.exitCode} stderr=${response.err}" }
+                    AppLog.d(TAG) {
+                        "download exit=${response.exitCode} run=${FetchTrace.sinceMs(startedAt)}ms " +
+                            "loadInfoJson=${spec.infoJsonPath != null} stderr=${response.err}"
+                    }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: CanceledException) {
@@ -247,14 +243,71 @@ class YtDlpEngine
             }
         }
 
+        /** Tries the configured player client and falls back to a second one on extractor errors. */
+        private suspend fun fetchWithFallback(
+            normalizedUrl: String,
+            loadMixAsPlaylist: Boolean,
+            processId: String,
+            trace: FetchTrace?,
+        ): FetchedMedia {
+            val experimental = YtDlpArgs.EXPERIMENTAL_YOUTUBE_CLIENT_ENABLED && Links.isYouTube(normalizedUrl)
+            if (experimental) {
+                try {
+                    return withContext(Dispatchers.IO) {
+                        fetchWithClient(
+                            normalizedUrl,
+                            loadMixAsPlaylist,
+                            processId,
+                            YtDlpArgs.EXPERIMENTAL_YOUTUBE_EXTRACTOR_ARGS,
+                            trace,
+                        )
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: InfoException) {
+                    // The experimental client loses formats and stability; never surface its failure.
+                    AppLog.d(TAG) { "experimental YouTube client failed, using the default: ${e.message}" }
+                }
+            }
+
+            val primaryClient = "youtube:player_client=${YtDlpArgs.FETCH_PLAYER_CLIENT}"
+            return try {
+                withContext(Dispatchers.IO) {
+                    fetchWithClient(normalizedUrl, loadMixAsPlaylist, processId, primaryClient, trace)
+                }
+            } catch (e: InfoException) {
+                if (!e.error.suggestUpdate) throw e
+                AppLog.d(TAG) {
+                    "Primary player client failed, trying fallback: " +
+                        YtDlpArgs.FETCH_PLAYER_CLIENT_FALLBACK
+                }
+                withContext(Dispatchers.IO) {
+                    fetchWithClient(
+                        normalizedUrl,
+                        loadMixAsPlaylist,
+                        processId,
+                        "youtube:player_client=${YtDlpArgs.FETCH_PLAYER_CLIENT_FALLBACK}",
+                        trace,
+                    )
+                }
+            }
+        }
+
         private suspend fun fetchWithClient(
             normalizedUrl: String,
             loadMixAsPlaylist: Boolean,
             processId: String,
-            playerClient: String,
+            extractorArgs: String,
+            trace: FetchTrace?,
         ): FetchedMedia =
             withContext(Dispatchers.IO) {
-                val request = RequestFactory.buildFetchRequestWithClient(normalizedUrl, loadMixAsPlaylist, playerClient)
+                val processStartedAt = FetchTrace.startedAt()
+                val request =
+                    RequestFactory.buildFetchRequestWithExtractorArgs(
+                        normalizedUrl,
+                        loadMixAsPlaylist,
+                        extractorArgs,
+                    )
                 AppLog.d(TAG) { "fetch command: ${request.buildCommand()}" }
                 val timedOut = AtomicBoolean(false)
                 val watchdog =
@@ -265,11 +318,17 @@ class YtDlpEngine
                         }
                     }
                 try {
+                    val runStartedAt = FetchTrace.startedAt()
+                    trace?.record(FetchStage.PROCESS_START, FetchTrace.sinceMs(processStartedAt))
                     val response = YoutubeDL.getInstance().execute(request, processId)
+                    trace?.record(FetchStage.YTDLP_RUN, FetchTrace.sinceMs(runStartedAt))
                     AppLog.d(TAG) {
                         "fetch exit=${response.exitCode} stdout=${response.out.length} stderr=${response.err}"
                     }
-                    parseResponse(response.out, normalizedUrl)
+                    val parsedStartedAt = FetchTrace.startedAt()
+                    val parsed = parseResponse(response.out, normalizedUrl)
+                    trace?.record(FetchStage.JSON_PARSE, FetchTrace.sinceMs(parsedStartedAt))
+                    withCachedInfoFile(parsed, normalizedUrl, response.out)
                 } catch (e: CancellationException) {
                     YoutubeDL.getInstance().destroyProcessById(processId)
                     throw e
@@ -291,6 +350,20 @@ class YtDlpEngine
                     watchdog.cancel()
                 }
             }
+
+        /**
+         * Keeps the raw `--dump-single-json` output for single videos so the download
+         * can skip extraction. Playlists are not reused: their entries are flat.
+         */
+        private fun withCachedInfoFile(
+            media: FetchedMedia,
+            normalizedUrl: String,
+            rawJson: String,
+        ): FetchedMedia {
+            val single = media as? FetchedMedia.Single ?: return media
+            val cached = infoCache.save(normalizedUrl, rawJson) ?: return media
+            return single.copy(infoJsonPath = cached.path, infoFetchedAtMs = cached.fetchedAtMs)
+        }
 
         private fun parseResponse(
             output: String,

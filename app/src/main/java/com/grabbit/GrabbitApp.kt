@@ -2,6 +2,7 @@ package com.grabbit
 
 import android.app.Application
 import com.grabbit.core.AppLog
+import com.grabbit.core.FetchTrace
 import com.grabbit.core.Timing
 import com.grabbit.core.suspendRunCatching
 import com.grabbit.data.settings.SettingsRepository
@@ -36,8 +37,10 @@ class GrabbitApp : Application() {
         // Unpack the bundled python / yt-dlp / ffmpeg binaries off the main thread
         // so the first download does not have to wait for it.
         appScope.launch {
+            val startedAt = FetchTrace.startedAt()
             suspendRunCatching { ytDlp.ensureInitialized() }
                 .onFailure { e -> AppLog.e(TAG, "yt-dlp initialization failed", e) }
+            AppLog.d(TAG) { "yt-dlp/ffmpeg warm-up finished in ${FetchTrace.sinceMs(startedAt)}ms" }
         }
         appScope.launch { autoUpdateIfDue() }
     }
