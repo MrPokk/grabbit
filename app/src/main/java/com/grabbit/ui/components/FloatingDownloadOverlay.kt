@@ -3,6 +3,7 @@ package com.grabbit.ui.components
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -42,9 +43,8 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
-// Overlay orchestration reads top-to-bottom; splitting the drag/dock state into child composables
-// would need a dozen callbacks and hide the single source of truth.
-@Suppress("LongMethod")
+private const val HALF = 2f
+
 @Composable
 fun FloatingDownloadOverlay(
     summary: QueueSummary,
@@ -56,39 +56,25 @@ fun FloatingDownloadOverlay(
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
-    // true only when the widget sits still at its edge (after layout and after the snap animation finished)
+
     var docked by remember { mutableStateOf(false) }
     var isDragging by remember { mutableStateOf(false) }
     val horizontalPosition = remember { Animatable(0f) }
     val verticalPosition = remember { Animatable(0f) }
     val reveal = remember { Animatable(0f) }
+    // true only when the widget sits still at its edge (after layout and after the snap animation finished)
     val revealTarget = docked && !state.expanded && !isDragging
+    val revealSpec: SpringSpec<Float> =
+        spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessLow,
+        )
     LaunchedEffect(revealTarget) {
-        if (revealTarget) {
-            reveal.animateTo(
-                targetValue = 1f,
-                animationSpec =
-                    spring(
-                        dampingRatio = Spring.DampingRatioNoBouncy,
-                        stiffness = Spring.StiffnessLow,
-                    ),
-            )
-        } else {
-            // retract the goo blob gooeyly instead of snapping it away, so the download icon
-            // can tear off together with it when the queue panel opens
-            reveal.animateTo(
-                targetValue = 0f,
-                animationSpec =
-                    spring(
-                        dampingRatio = Spring.DampingRatioNoBouncy,
-                        stiffness = Spring.StiffnessLow,
-                    ),
-            )
-        }
+        reveal.animateTo(targetValue = if (revealTarget) 1f else 0f, animationSpec = revealSpec)
     }
     val revealValue by reveal.asState()
-    // Fades the goo blob out when the queue panel opens, so the solid circle under the scrim
-    // stops peeking out next to the panel once it has fully faded.
+
+    // Fades the goo blob out when the queue panel opens so the solid circle under the scrim stops peeking out.
     val blobPresence by animateFloatAsState(
         targetValue = if (state.expanded) 0f else 1f,
         animationSpec = tween(Timing.QUEUE_PANEL_ANIMATION_DURATION_MS),
@@ -123,14 +109,16 @@ fun FloatingDownloadOverlay(
     }
 
     Box(modifier.fillMaxSize().onSizeChanged { containerSize = it }) {
+        val targetHalf = with(LocalDensity.current) { (Dimens.gooTapTargetSize / HALF).roundToPx() }
+        val centerX = horizontalPosition.value.roundToInt()
+        val centerY = verticalPosition.value.roundToInt()
+
+        // Visual circle (36dp) — original positioning (top-left at position, content centered inside)
         Box(
             modifier =
                 Modifier
                     .offset {
-                        IntOffset(
-                            horizontalPosition.value.roundToInt(),
-                            verticalPosition.value.roundToInt(),
-                        )
+                        IntOffset(centerX, centerY)
                     }.size(Dimens.gooCircleSize),
         ) {
             if (!isDragging && blobPresence > 0f) {
@@ -151,76 +139,78 @@ fun FloatingDownloadOverlay(
                 edge = state.edge,
                 isDragging = isDragging,
             )
-            Box(
-                modifier =
-                    Modifier
-                        .size(Dimens.iconButton)
-                        .align(Alignment.Center)
-                        .pointerInput(Unit) { detectTapGestures(onTap = { state.expand() }) }
-                        .pointerInput(bounds) {
-                            detectDragGestures(
-                                onDragStart = {
-                                    isDragging = true
-                                    docked = false
-                                },
-                                onDrag = { change, delta ->
-                                    change.consume()
-                                    scope.launch {
-                                        horizontalPosition.snapTo(
-                                            (horizontalPosition.value + delta.x).coerceIn(
-                                                bounds.minLeft,
-                                                bounds.maxLeft,
-                                            ),
-                                        )
-                                        verticalPosition.snapTo(
-                                            (verticalPosition.value + delta.y).coerceIn(
-                                                bounds.minTop,
-                                                bounds.maxTop,
-                                            ),
-                                        )
-                                    }
-                                },
-                                onDragEnd = {
-                                    isDragging = false
-                                    val draggedEdge =
-                                        if (
-                                            horizontalPosition.value + widgetSizePx * UiValues.MIDPOINT <
-                                            bounds.usableCenter
-                                        ) {
-                                            DockEdge.LEFT
-                                        } else {
-                                            DockEdge.RIGHT
-                                        }
-                                    val draggedFraction = bounds.fractionFor(verticalPosition.value)
-                                    state.dock(draggedEdge, draggedFraction)
-                                    scope.launch {
-                                        snapToDock(
-                                            bounds,
-                                            horizontalPosition,
-                                            verticalPosition,
-                                            draggedEdge,
-                                            draggedFraction,
-                                        )
-                                        if (!isDragging) docked = true
-                                    }
-                                },
-                                onDragCancel = {
-                                    isDragging = false
-                                    scope.launch {
-                                        snapToDock(
-                                            bounds,
-                                            horizontalPosition,
-                                            verticalPosition,
-                                            state.edge,
-                                            state.verticalFraction,
-                                        )
-                                        docked = true
-                                    }
-                                },
-                            )
-                        },
-            )
         }
+        // Tap/drag target (80dp) — centered on same position, not clipped
+        Box(
+            modifier =
+                Modifier
+                    .offset {
+                        IntOffset(centerX - targetHalf, centerY - targetHalf)
+                    }.size(Dimens.gooTapTargetSize)
+                    .pointerInput(Unit) { detectTapGestures(onTap = { state.expand() }) }
+                    .pointerInput(bounds) {
+                        detectDragGestures(
+                            onDragStart = {
+                                isDragging = true
+                                docked = false
+                            },
+                            onDrag = { change, delta ->
+                                change.consume()
+                                scope.launch {
+                                    horizontalPosition.snapTo(
+                                        (horizontalPosition.value + delta.x).coerceIn(
+                                            bounds.minLeft,
+                                            bounds.maxLeft,
+                                        ),
+                                    )
+                                    verticalPosition.snapTo(
+                                        (verticalPosition.value + delta.y).coerceIn(
+                                            bounds.minTop,
+                                            bounds.maxTop,
+                                        ),
+                                    )
+                                }
+                            },
+                            onDragEnd = {
+                                isDragging = false
+                                val draggedEdge =
+                                    if (
+                                        horizontalPosition.value + widgetSizePx * UiValues.MIDPOINT <
+                                        bounds.usableCenter
+                                    ) {
+                                        DockEdge.LEFT
+                                    } else {
+                                        DockEdge.RIGHT
+                                    }
+                                val draggedFraction = bounds.fractionFor(verticalPosition.value)
+                                state.dock(draggedEdge, draggedFraction)
+                                scope.launch {
+                                    snapToDock(
+                                        bounds,
+                                        horizontalPosition,
+                                        verticalPosition,
+                                        draggedEdge,
+                                        draggedFraction,
+                                    )
+                                    if (!isDragging) docked = true
+                                }
+                            },
+                            onDragCancel = {
+                                isDragging = false
+                                scope.launch {
+                                    snapToDock(
+                                        bounds,
+                                        horizontalPosition,
+                                        verticalPosition,
+                                        state.edge,
+                                        state.verticalFraction,
+                                    )
+                                    docked = true
+                                }
+                            },
+                        )
+                    },
+        )
 
         DownloadQueuePanel(
             visible = state.expanded,

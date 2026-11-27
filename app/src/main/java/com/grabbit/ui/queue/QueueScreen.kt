@@ -34,7 +34,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.grabbit.R
 import com.grabbit.core.MimeTypes
@@ -49,7 +49,6 @@ import com.grabbit.ui.components.shareSavedFile
 import com.grabbit.ui.components.showSavedFileInFolder
 import com.grabbit.ui.theme.Dimens
 
-/** Queue screen with active downloads, task actions and quick access to settings. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QueueScreen(

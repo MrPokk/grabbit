@@ -47,7 +47,6 @@ import com.grabbit.ui.theme.Dimens
 import com.grabbit.ui.theme.Motion
 import kotlin.math.roundToInt
 
-/** Thumbnail with a theme corner radius; callers may override [shape] explicitly. */
 @Composable
 fun Thumbnail(
     url: String?,
@@ -79,7 +78,6 @@ fun Thumbnail(
     }
 }
 
-/** Centered placeholder with an icon, a title and an optional action. */
 @Composable
 fun EmptyState(
     icon: ImageVector,
@@ -134,7 +132,6 @@ fun EmptyState(
     }
 }
 
-/** Error card with optional retry/update actions and expandable technical details. */
 @Composable
 fun ErrorCard(
     error: AppError,
@@ -206,7 +203,6 @@ fun ErrorCard(
     }
 }
 
-/** Label above a group of settings. */
 @Composable
 fun SectionHeader(
     text: String,

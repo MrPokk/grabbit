@@ -60,7 +60,6 @@ private const val TAG = "FormatSheet"
 
 private const val PRIMARY_STORAGE_VOLUME = "primary"
 
-/** Bottom sheet with format, quality and extra options for the current media. */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Suppress("LongMethod") // UI sheet; splitting threads many state parameters and harms clarity.
 @Composable
@@ -214,69 +213,22 @@ fun FormatSheet(
                     AnimatedVisibility(visible = advancedExpanded) {
                         Column(verticalArrangement = Arrangement.spacedBy(Dimens.xxs)) {
                             HorizontalDivider(Modifier.padding(vertical = Dimens.xxs))
-                            Label(stringResource(R.string.label_extras))
-                            ToggleRow(
-                                stringResource(R.string.extra_thumbnail),
-                                options.embedThumbnail,
-                            ) { options = options.copy(embedThumbnail = it) }
-                            ToggleRow(
-                                stringResource(R.string.extra_metadata),
-                                options.embedMetadata,
-                            ) { options = options.copy(embedMetadata = it) }
-                            ToggleRow(
-                                stringResource(R.string.extra_subtitles),
-                                options.subtitles,
-                            ) { options = options.copy(subtitles = it) }
-                            ToggleRow(
-                                stringResource(R.string.extra_sponsorblock),
-                                options.sponsorBlock,
-                            ) { options = options.copy(sponsorBlock = it) }
+                            ExtrasSection(options = options, onOptionsChange = { options = it })
 
                             HorizontalDivider(Modifier.padding(vertical = Dimens.xxs))
-                            Label(stringResource(R.string.save_location_title))
-                            val folderDescription =
-                                saveFolderPath
-                                    ?: if (saveFolderUri != null) {
-                                        stringResource(R.string.save_location_custom)
-                                    } else {
-                                        stringResource(R.string.save_location_system)
-                                    }
-                            Column(modifier = Modifier.fillMaxWidth()) {
-                                Text(
-                                    text = folderDescription,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                )
-                                Row(horizontalArrangement = Arrangement.spacedBy(Dimens.xs)) {
-                                    TextButton(onClick = { folderPicker.launch(null) }) {
-                                        Text(stringResource(R.string.save_location_pick))
-                                    }
-                                    if (saveFolderUri != null) {
-                                        TextButton(onClick = {
-                                            saveFolderUri = null
-                                            saveFolderPath = null
-                                        }) {
-                                            Text(stringResource(R.string.save_location_clear))
-                                        }
-                                    }
-                                }
-                            }
+                            SaveLocationSection(
+                                saveFolderPath = saveFolderPath,
+                                hasCustomFolder = saveFolderUri != null,
+                                onPickFolder = { folderPicker.launch(null) },
+                                onClearFolder = {
+                                    saveFolderUri = null
+                                    saveFolderPath = null
+                                },
+                            )
 
                             if (!isPlaylist) {
                                 HorizontalDivider(Modifier.padding(vertical = Dimens.xxs))
-                                Label(stringResource(R.string.file_name_label))
-                                OutlinedTextField(
-                                    value = fileName,
-                                    onValueChange = { fileName = it },
-                                    singleLine = true,
-                                    placeholder = { Text(stringResource(R.string.file_name_hint)) },
-                                    modifier = Modifier.fillMaxWidth(),
-                                )
-                                Text(
-                                    text = stringResource(R.string.file_name_empty),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(top = Dimens.xxs),
-                                )
+                                FileNameSection(fileName = fileName, onFileNameChange = { fileName = it })
                             }
                         }
                     }
@@ -306,7 +258,6 @@ fun FormatSheet(
     }
 }
 
-@Suppress("DEPRECATION") // SAF tree paths still need the external storage root for display
 private fun folderFullPath(uri: Uri?): String? {
     val documentId =
         uri?.let {
@@ -314,7 +265,7 @@ private fun folderFullPath(uri: Uri?): String? {
                 DocumentsContract.getTreeDocumentId(it)
             } catch (e: IllegalArgumentException) {
                 AppLog.e(TAG, "not a tree URI: $it", e)
-                return null
+                null
             }
         } ?: return null
     val volume = documentId.substringBefore(':')
@@ -327,6 +278,84 @@ private fun folderFullPath(uri: Uri?): String? {
             "/storage/$volume"
         }
     return "$root/$relative"
+}
+
+@Composable
+private fun SaveLocationSection(
+    saveFolderPath: String?,
+    hasCustomFolder: Boolean,
+    onPickFolder: () -> Unit,
+    onClearFolder: () -> Unit,
+) {
+    Label(stringResource(R.string.save_location_title))
+    val folderDescription =
+        saveFolderPath
+            ?: if (hasCustomFolder) {
+                stringResource(R.string.save_location_custom)
+            } else {
+                stringResource(R.string.save_location_system)
+            }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = folderDescription,
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(Dimens.xs)) {
+            TextButton(onClick = onPickFolder) {
+                Text(stringResource(R.string.save_location_pick))
+            }
+            if (hasCustomFolder) {
+                TextButton(onClick = onClearFolder) {
+                    Text(stringResource(R.string.save_location_clear))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FileNameSection(
+    fileName: String,
+    onFileNameChange: (String) -> Unit,
+) {
+    Label(stringResource(R.string.file_name_label))
+    OutlinedTextField(
+        value = fileName,
+        onValueChange = onFileNameChange,
+        singleLine = true,
+        placeholder = { Text(stringResource(R.string.file_name_hint)) },
+        modifier = Modifier.fillMaxWidth(),
+    )
+    Text(
+        text = stringResource(R.string.file_name_empty),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = Dimens.xxs),
+    )
+}
+
+@Composable
+private fun ExtrasSection(
+    options: DownloadOptions,
+    onOptionsChange: (DownloadOptions) -> Unit,
+) {
+    Label(stringResource(R.string.label_extras))
+    ToggleRow(
+        stringResource(R.string.extra_thumbnail),
+        options.embedThumbnail,
+    ) { onOptionsChange(options.copy(embedThumbnail = it)) }
+    ToggleRow(
+        stringResource(R.string.extra_metadata),
+        options.embedMetadata,
+    ) { onOptionsChange(options.copy(embedMetadata = it)) }
+    ToggleRow(
+        stringResource(R.string.extra_subtitles),
+        options.subtitles,
+    ) { onOptionsChange(options.copy(subtitles = it)) }
+    ToggleRow(
+        stringResource(R.string.extra_sponsorblock),
+        options.sponsorBlock,
+    ) { onOptionsChange(options.copy(sponsorBlock = it)) }
 }
 
 @Composable

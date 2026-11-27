@@ -10,11 +10,6 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.longOrNull
 
-/**
- * Parses `yt-dlp --dump-single-json` output. We parse the raw JSON instead of
- * the library's `VideoInfo` mapper because we need playlist entries and
- * per-format codec data, neither of which the mapper exposes.
- */
 object InfoParser {
     private val json =
         Json {
@@ -22,7 +17,6 @@ object InfoParser {
             isLenient = true
         }
 
-    /** Parses yt-dlp JSON into a single item or a playlist; [sourceUrl] is the submitted link. */
     fun parse(
         raw: String,
         sourceUrl: String,
@@ -71,12 +65,11 @@ object InfoParser {
             entries.mapNotNull { element ->
                 val obj = element as? JsonObject ?: return@mapNotNull null
                 val id = obj.string("id") ?: return@mapNotNull null
+                // Dynamic playlists (YouTube Mix / radio) can report the same playlist_index for several entries;
+                // duplicate keys crash LazyColumn, so make every index unique and increasing.
                 var index = obj.int("playlist_index") ?: obj.int("index") ?: 0
                 if (index <= 0) index = nextIndex
-                // Dynamic playlists (YouTube Mix / radio) can report the same
-                // playlist_index for several entries. Duplicate keys in the
-                // LazyColumn crash the app, so make every index unique and
-                // increasing.
+
                 while (index in seen) index++
                 seen.add(index)
                 nextIndex = maxOf(nextIndex, index + 1)
@@ -101,25 +94,27 @@ object InfoParser {
     }
 
     private fun parseFormat(obj: JsonObject): FormatInfo? {
-        val ext = obj.string("ext") ?: return null
-        if (ext == "mhtml" || obj.string("protocol") == "mhtml") return null
+        val ext = obj.string("ext")
+        if (ext.isNullOrBlank() || ext == "mhtml" || obj.string("protocol") == "mhtml") return null
         val vcodec = obj.string("vcodec")
         val acodec = obj.string("acodec")
         val isVideo = !vcodec.isNullOrBlank() && vcodec != "none"
         val isAudio = !acodec.isNullOrBlank() && acodec != "none"
         if (!isVideo && !isAudio) return null
-        return FormatInfo(
-            id = obj.string("format_id") ?: return null,
-            ext = ext,
-            height = obj.int("height") ?: 0,
-            fps = obj.int("fps") ?: 0,
-            vcodec = vcodec,
-            acodec = acodec,
-            abr = obj.double("abr") ?: 0.0,
-            tbr = obj.double("tbr") ?: 0.0,
-            fileSize = obj.long("filesize") ?: obj.long("filesize_approx") ?: 0L,
-            note = obj.string("format_note"),
-        )
+        return obj.string("format_id")?.let { id ->
+            FormatInfo(
+                id = id,
+                ext = ext,
+                height = obj.int("height") ?: 0,
+                fps = obj.int("fps") ?: 0,
+                vcodec = vcodec,
+                acodec = acodec,
+                abr = obj.double("abr") ?: 0.0,
+                tbr = obj.double("tbr") ?: 0.0,
+                fileSize = obj.long("filesize") ?: obj.long("filesize_approx") ?: 0L,
+                note = obj.string("format_note"),
+            )
+        }
     }
 
     private fun thumbnail(obj: JsonObject): String? {

@@ -19,4 +19,21 @@ class ErrorSignalsTest {
         assertFalse(ErrorSignals.isExpiredFormatUrl("Video unavailable"))
         assertFalse(ErrorSignals.isExpiredFormatUrl("Requested format is not available"))
     }
+
+    @Test
+    fun requiresAuthenticationOnlyForExplicitSignals() {
+        assertTrue(ErrorSignals.isAuthenticationRequired("This video is private"))
+        assertTrue(ErrorSignals.isAuthenticationRequired("Sign in to confirm you're not a bot"))
+        assertFalse(ErrorSignals.isAuthenticationRequired("Use --cookies FILE for authentication"))
+        assertFalse(ErrorSignals.isAuthenticationRequired(null))
+    }
+
+    @Test
+    fun detectsTransientDownloadFailures() {
+        assertTrue(ErrorSignals.isTransientDownloadFailure("HTTP Error 403: Forbidden"))
+        assertTrue(ErrorSignals.isTransientDownloadFailure("HTTP Error 429: Too Many Requests"))
+        assertTrue(ErrorSignals.isTransientDownloadFailure("Connection reset by peer"))
+        assertFalse(ErrorSignals.isTransientDownloadFailure("This video is private"))
+        assertFalse(ErrorSignals.isTransientDownloadFailure(null))
+    }
 }

@@ -11,24 +11,17 @@ private const val HEX_RADIX = 16
 private const val BYTE_MASK = 0xff
 private const val HASH_ALGORITHM = "SHA-1"
 
-/** A cached `--dump-single-json` file and the moment it was written. */
 data class CachedInfoFile(
     val path: String,
     val fetchedAtMs: Long,
 )
 
-/**
- * Stores raw yt-dlp info JSON in the cache dir so a download can start with
- * `--load-info-json` instead of extracting the same link again. Entries older
- * than [ttlMs] are not usable because YouTube/TikTok format URLs expire.
- */
 class InfoCacheStore(
     private val root: File,
     private val ttlMs: Long,
     private val retentionMs: Long,
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
-    /** Writes [rawJson] for [key]; returns `null` when the file could not be written. */
     fun save(
         key: String,
         rawJson: String,
@@ -63,7 +56,6 @@ class InfoCacheStore(
         }
     }
 
-    /** Whether [path] exists and was written less than [ttlMs] ago. */
     fun isFresh(
         path: String?,
         fetchedAtMs: Long,
@@ -73,7 +65,6 @@ class InfoCacheStore(
         return clock() - fetchedAtMs <= ttlMs
     }
 
-    /** Deletes one cached file, e.g. after its format URLs expired. */
     fun discard(path: String?) {
         if (path.isNullOrBlank()) return
         val file = File(path)
@@ -82,7 +73,6 @@ class InfoCacheStore(
         }
     }
 
-    /** Drops files that are far past their usable lifetime. */
     private fun evictExpired() {
         val now = clock()
         root

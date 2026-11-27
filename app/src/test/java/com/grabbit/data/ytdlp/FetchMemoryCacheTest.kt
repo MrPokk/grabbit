@@ -31,7 +31,7 @@ class FetchMemoryCacheTest {
         val third = sampleMedia("third")
         cache.put("a", first)
         cache.put("b", second)
-        // Touch "a" so "b" becomes the least recently used entry.
+
         assertEquals(first, cache.get("a"))
         cache.put("c", third)
         assertNull(cache.get("b"))

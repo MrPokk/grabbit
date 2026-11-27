@@ -10,7 +10,6 @@ import androidx.room.Query
 import androidx.room.RoomDatabase
 import kotlinx.coroutines.flow.Flow
 
-/** One saved download in the history list. */
 @Entity(tableName = "history")
 data class HistoryEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -30,7 +29,6 @@ data class HistoryEntity(
     val optionsJson: String,
 )
 
-/** Read/write access to saved downloads; [observe] filters by title, uploader or file name. */
 @Dao
 interface HistoryDao {
     @Query(
@@ -44,34 +42,27 @@ interface HistoryDao {
     )
     fun observe(query: String): Flow<List<HistoryEntity>>
 
-    /** All entries, newest first. */
     @Query("SELECT * FROM history ORDER BY createdAt DESC")
     fun observeAll(): Flow<List<HistoryEntity>>
 
-    /** Looks up one saved download by id. */
     @Query("SELECT * FROM history WHERE id = :id")
     suspend fun find(id: Long): HistoryEntity?
 
-    /** Saves a finished download and returns its row id. */
     @Insert
     suspend fun insert(entity: HistoryEntity): Long
 
-    /** Removes one history entry. */
     @Delete
     suspend fun delete(entity: HistoryEntity)
 
-    /** Removes the history entry for a file deleted from the device. */
     @Query("DELETE FROM history WHERE uri = :uri")
     suspend fun deleteByUri(uri: String)
 
-    /** Removes every history entry. */
     @Query("DELETE FROM history")
     suspend fun clear()
 }
 
-/** Room holder for the history table; schema changes require an explicit migration. */
+// Schema changes require an explicit Room Migration; never destructive.
 @Database(entities = [HistoryEntity::class], version = 1, exportSchema = true)
 abstract class AppDatabase : RoomDatabase() {
-    /** DAO used by the history screen and the download engine. */
     abstract fun historyDao(): HistoryDao
 }

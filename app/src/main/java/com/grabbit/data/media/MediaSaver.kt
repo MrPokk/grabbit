@@ -1,5 +1,6 @@
 package com.grabbit.data.media
 
+import android.content.ContentResolver
 import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
@@ -23,21 +24,12 @@ import javax.inject.Singleton
 
 private const val TAG = "MediaSaver"
 
-/**
- * Copies a finished download into scoped storage:
- *  - MediaStore (Movies/Grabbit for video, Music/Grabbit for audio) by default,
- *  - a user-picked SAF tree when one is configured.
- *
- * Downloads themselves always run in the app cache, because yt-dlp cannot write
- * to MediaStore paths directly.
- */
 @Singleton
 class MediaSaver
     @Inject
     constructor(
         @ApplicationContext private val context: Context,
     ) {
-        /** A file placed in MediaStore or in the user's SAF tree. */
         data class SavedFile(
             val uri: Uri,
             val displayName: String,
@@ -45,10 +37,6 @@ class MediaSaver
             val sizeBytes: Long,
         )
 
-        /**
-         * Copies [source] into the configured destination, falling back from a SAF tree
-         * to MediaStore (or public storage on API < 29) when the tree cannot be written.
-         */
         suspend fun save(
             source: File,
             mediaType: MediaType,
@@ -58,27 +46,35 @@ class MediaSaver
         ): SavedFile =
             withContext(Dispatchers.IO) {
                 val safeName = FileName.sanitize(displayName)
-
                 if (customFolder != null) {
-                    val viaTree =
-                        try {
-                            saveToTree(source, customFolder, mimeType, safeName)
-                        } catch (e: IOException) {
-                            AppLog.e(TAG, "could not save into the selected folder", e)
-                            null
-                        } catch (e: SecurityException) {
-                            AppLog.e(TAG, "could not save into the selected folder", e)
-                            null
-                        }
+                    val viaTree = saveToTreeOrNull(source, customFolder, mimeType, safeName)
                     if (viaTree != null) return@withContext viaTree
                 }
-
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     saveToMediaStore(source, mediaType, mimeType, safeName)
                 } else {
                     saveToLegacyStorage(source, mediaType, mimeType, safeName)
                 }
             }
+
+        private fun saveToTreeOrNull(
+            source: File,
+            folder: Uri,
+            mimeType: String,
+            displayName: String,
+        ): SavedFile? =
+            try {
+                saveToTree(source, folder, mimeType, displayName)
+            } catch (e: IOException) {
+                logTreeError(e)
+            } catch (e: SecurityException) {
+                logTreeError(e)
+            }
+
+        private fun logTreeError(e: Exception): SavedFile? {
+            AppLog.e(TAG, "could not save into the selected folder", e)
+            return null
+        }
 
         @RequiresApi(Build.VERSION_CODES.Q)
         private fun saveToMediaStore(
@@ -95,7 +91,6 @@ class MediaSaver
                 } else {
                     "${Environment.DIRECTORY_MOVIES}/Grabbit"
                 }
-
             val values =
                 ContentValues().apply {
                     put(MediaStore.MediaColumns.DISPLAY_NAME, displayName)
@@ -103,43 +98,50 @@ class MediaSaver
                     put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath)
                     put(MediaStore.MediaColumns.IS_PENDING, 1)
                 }
-
-            val uri =
-                resolver.insert(collection, values)
-                    ?: throw IOException("Could not create a MediaStore entry")
+            val uri = insertEntry(resolver, collection, values)
             try {
-                resolver.openOutputStream(uri)?.use { output ->
-                    source.inputStream().use { input -> input.copyTo(output, Storage.COPY_BUFFER_BYTES) }
-                } ?: throw IOException("Could not open the MediaStore stream")
-
-                val done = ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }
-                resolver.update(uri, done, null, null)
+                writeEntry(resolver, uri, source)
             } catch (e: IOException) {
-                try {
-                    resolver.delete(uri, null, null)
-                } catch (e: SecurityException) {
-                    // The original failure is the useful one; keep it.
-                    AppLog.e(TAG, "could not remove the pending MediaStore entry", e)
-                }
+                deleteQuietly(resolver, uri)
                 throw e
             } catch (e: SecurityException) {
-                try {
-                    resolver.delete(uri, null, null)
-                } catch (e: SecurityException) {
-                    // The original failure is the useful one; keep it.
-                    AppLog.e(TAG, "could not remove the pending MediaStore entry", e)
-                }
+                deleteQuietly(resolver, uri)
                 throw e
             }
-
             return SavedFile(uri, displayName, mimeType, source.length())
         }
 
-        /**
-         * API < 29 has no scoped storage: public directories and MediaStore.DATA
-         * are still needed there, hence the deprecation suppression.
-         */
-        @Suppress("DEPRECATION")
+        private fun insertEntry(
+            resolver: ContentResolver,
+            collection: Uri,
+            values: ContentValues,
+        ): Uri =
+            resolver.insert(collection, values)
+                ?: throw IOException("Could not create a MediaStore entry")
+
+        private fun writeEntry(
+            resolver: ContentResolver,
+            uri: Uri,
+            source: File,
+        ) {
+            resolver.openOutputStream(uri)?.use { output ->
+                source.inputStream().use { input -> input.copyTo(output, Storage.COPY_BUFFER_BYTES) }
+            } ?: throw IOException("Could not open the MediaStore stream")
+            val done = ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }
+            resolver.update(uri, done, null, null)
+        }
+
+        private fun deleteQuietly(
+            resolver: ContentResolver,
+            uri: Uri,
+        ) {
+            try {
+                resolver.delete(uri, null, null)
+            } catch (e: SecurityException) {
+                AppLog.e(TAG, "could not remove the pending MediaStore entry", e)
+            }
+        }
+
         private fun saveToLegacyStorage(
             source: File,
             mediaType: MediaType,
@@ -180,6 +182,15 @@ class MediaSaver
         ): SavedFile? {
             val tree = DocumentFile.fromTreeUri(context, folder) ?: return null
             if (!tree.canWrite()) return null
+            return writeTreeFile(tree, source, mimeType, displayName)
+        }
+
+        private fun writeTreeFile(
+            tree: DocumentFile,
+            source: File,
+            mimeType: String,
+            displayName: String,
+        ): SavedFile? {
             val file = tree.createFile(mimeType, displayName) ?: return null
             context.contentResolver.openOutputStream(file.uri)?.use { output ->
                 source.inputStream().use { input -> input.copyTo(output, Storage.COPY_BUFFER_BYTES) }

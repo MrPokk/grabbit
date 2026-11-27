@@ -27,7 +27,6 @@ internal data class TikTokVideoMeta(
     val durationSeconds: Long?,
 )
 
-/** Reads title, cover and duration from a TikTok video page's rehydration JSON. */
 internal object TikTokVideoMetaReader {
     private val json = Json { ignoreUnknownKeys = true }
 

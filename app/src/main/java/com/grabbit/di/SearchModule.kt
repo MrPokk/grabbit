@@ -8,7 +8,6 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
-/** Binds the platform search abstraction to the composite provider. */
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class SearchModule {

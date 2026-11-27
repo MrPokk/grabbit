@@ -38,11 +38,7 @@ fun DownloadProgressCircle(
     containerVisible: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
-    val content =
-        Modifier
-            .fillMaxSize()
-            .graphicsLayer { alpha = contentAlpha }
-
+    val content = Modifier.fillMaxSize().graphicsLayer { alpha = contentAlpha }
     Box(modifier) {
         if (containerVisible) {
             Surface(
@@ -60,16 +56,10 @@ fun DownloadProgressCircle(
         }
         if (summary.count > 1) {
             Badge(
-                modifier =
-                    Modifier
-                        .align(badgeAlignment)
-                        .padding(Dimens.xxs)
-                        .graphicsLayer { alpha = contentAlpha },
+                modifier = Modifier.align(badgeAlignment).padding(Dimens.xxs).graphicsLayer { alpha = contentAlpha },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
-            ) {
-                Text(text = summary.count.toString())
-            }
+            ) { Text(text = summary.count.toString()) }
         }
     }
 }

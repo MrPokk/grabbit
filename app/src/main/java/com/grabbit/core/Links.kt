@@ -2,24 +2,17 @@ package com.grabbit.core
 
 private const val QUERY_PARAM_PARTS = 2
 
-/**
- * Link handling helpers. The app accepts a raw URL, a share-sheet text blob
- * ("Look at this video https://…") or text with punctuation around the link.
- */
 object Links {
     private val urlRegex = Regex("""https?://[^\s<>"']+""")
 
     private val trailing = setOf('.', ',', ')', ']', '}', '"', '\'', '»', '…', '!', '?', ';', ':')
 
-    /** Extracts the first HTTP(S) link from share text, or `null` if there is none. */
     fun extract(text: String?): String? {
         if (text.isNullOrBlank()) return null
-        val raw = urlRegex.find(text)?.value ?: return null
-        val trimmed = raw.trimEnd { it in trailing }
-        return if (looksLikeUrl(trimmed)) trimmed else null
+        val trimmed = urlRegex.find(text)?.value?.trimEnd { it in trailing } ?: return null
+        return trimmed.takeIf { looksLikeUrl(it) }
     }
 
-    /** Accepts only absolute HTTP(S) URLs with a dotted host. */
     fun looksLikeUrl(value: String): Boolean {
         val v = value.trim()
         if (!v.startsWith("http://") && !v.startsWith("https://")) return false
@@ -27,7 +20,6 @@ object Links {
         return host.contains('.') && host.length > Limits.MIN_HOST_LENGTH
     }
 
-    /** Lower-cased host of an absolute URL, without port or user info. */
     fun host(url: String): String =
         url
             .substringAfter("://", "")
@@ -36,64 +28,47 @@ object Links {
             .substringBefore(':')
             .lowercase()
 
-    /** True for youtube.com, youtu.be and their subdomains. */
     fun isYouTube(url: String): Boolean {
         val host = host(url)
         return host == "youtu.be" || host == "youtube.com" || host.endsWith(".youtube.com")
     }
 
-    /** True for tiktok.com and its subdomains. */
     fun isTikTok(url: String): Boolean {
         val host = host(url)
         return host == "tiktok.com" || host.endsWith(".tiktok.com")
     }
 
-    /**
-     * True for YouTube "Mix" / radio URLs (`list=RD…`, `start_radio=1`).
-     * These are dynamic, endless playlists that yt-dlp treats as playlists
-     * by default.
-     */
     fun isRadioPlaylist(url: String): Boolean {
         val query = url.substringAfter('?', "").substringBefore('#')
-        if (query.isBlank()) return false
-        return query.split('&').any { param ->
-            val pair = param.split('=', limit = QUERY_PARAM_PARTS)
-            val name = pair[0].lowercase()
-            val value = pair.getOrNull(1) ?: ""
-            when (name) {
-                "list" -> value.startsWith("rd", ignoreCase = true)
-                "start_radio", "radio" -> value == "1" || value.equals("true", ignoreCase = true)
-                else -> false
-            }
+        return query.isNotBlank() && query.split('&').any(::isRadioParam)
+    }
+
+    private fun isRadioParam(param: String): Boolean {
+        val pair = param.split('=', limit = QUERY_PARAM_PARTS)
+        val name = pair[0].lowercase()
+        val value = pair.getOrNull(1) ?: ""
+        return when (name) {
+            "list" -> value.startsWith("rd", ignoreCase = true)
+            "start_radio", "radio" -> value == "1" || value.equals("true", ignoreCase = true)
+            else -> false
         }
     }
 
-    /**
-     * Strips URL tracking / referrer parameters YouTube, Google and friends
-     * append (`utm_*`, `si`, `t`, …). Video ids (`v`, `id`) and playlist
-     * params (`list`) are kept.
-     */
     fun normalize(url: String): String {
         val queryStart = url.indexOf('?')
         if (queryStart < 0) return url
         val base = url.substring(0, queryStart)
-        val fragment = url.substringAfter('#', "").let { if (it.isEmpty()) "" else "#$it" }
+        val fragment = url.substringAfter('#', "")
+        val fragmentSuffix = if (fragment.isEmpty()) "" else "#$fragment"
+        val query = url.substring(queryStart + 1).substringBefore('#')
         val kept =
-            url
-                .substring(queryStart + 1)
-                .substringBefore('#')
+            query
                 .split('&')
                 .filterNot { param ->
                     val name = param.substringBefore('=', "").lowercase()
-                    name.isEmpty() ||
-                        name.startsWith("utm_") ||
-                        name in trackingParams
+                    name.isEmpty() || name.startsWith("utm_") || name in trackingParams
                 }
-        return if (kept.isEmpty()) {
-            base + fragment
-        } else {
-            base + "?" + kept.joinToString("&") + fragment
-        }
+        return if (kept.isEmpty()) base + fragmentSuffix else base + "?" + kept.joinToString("&") + fragmentSuffix
     }
 
     private val trackingParams =

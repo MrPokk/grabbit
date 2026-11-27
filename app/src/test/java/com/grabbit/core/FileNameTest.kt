@@ -14,7 +14,7 @@ class FileNameTest {
         assertEquals("my_file", FileName.sanitize("my<file"))
         assertEquals("my_file", FileName.sanitize("my>file"))
         assertEquals("my_file", FileName.sanitize("my|file"))
-        assertEquals("my file", FileName.sanitize("my file")) // space is legal
+        assertEquals("my file", FileName.sanitize("my file"))
         assertEquals("normal", FileName.sanitize("normal"))
     }
 
@@ -22,8 +22,8 @@ class FileNameTest {
     fun `sanitize trims and falls back for blank names`() {
         assertEquals("download", FileName.sanitize(""))
         assertEquals("download", FileName.sanitize("   "))
-        assertEquals("_________", FileName.sanitize("/\\:*?\"<>|")) // all illegal -> underscores
-        assertEquals("___", FileName.sanitize("/\\*")) // trimmed only, illegal replaced
+        assertEquals("_________", FileName.sanitize("/\\:*?\"<>|"))
+        assertEquals("___", FileName.sanitize("/\\*"))
     }
 
     @Test

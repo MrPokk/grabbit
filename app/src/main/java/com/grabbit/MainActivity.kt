@@ -14,7 +14,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.grabbit.core.Languages
@@ -28,7 +28,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/** Single-activity host: applies the stored locale, requests permissions and routes share intents. */
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
     @Inject
@@ -39,9 +38,9 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        // Applying an empty locale list on every cold start makes AppCompat
-        // recreate the Activity. Only a stored explicit language needs applying
-        // here; switching to "system default" is handled in settings.
+
+        // Applying an empty locale list on every cold start makes AppCompat recreate the Activity.
+        // Only a stored explicit language needs applying here; switching to "system default" is handled in settings.
         lifecycleScope.launch {
             settingsRepository.current().language?.let(Languages::apply)
         }

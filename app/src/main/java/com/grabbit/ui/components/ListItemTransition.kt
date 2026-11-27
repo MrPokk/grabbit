@@ -10,14 +10,6 @@ import androidx.compose.ui.platform.LocalDensity
 import com.grabbit.ui.theme.Motion
 import kotlin.math.roundToInt
 
-/**
- * Standard enter / exit transition for a single list item: a soft fade paired with a small
- * vertical slide. Adding and removing items is visually obvious instead of instantaneous.
- *
- * Use it instead of a bare `items(...)` lambda in [LazyColumn]. (Placement animation for
- * reordering is intentionally omitted: [androidx.compose.foundation.layout.animateItemPlacement]
- * is not available in the Compose version the app targets.)
- */
 @Composable
 fun ListItemTransition(content: @Composable () -> Unit) {
     val density = LocalDensity.current

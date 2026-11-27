@@ -20,10 +20,6 @@ import com.grabbit.data.download.DownloadTask
 
 private const val TAG = "DownloadNotificationManager"
 
-/**
- * Builds and updates a single ongoing notification for the entire download process,
- * regardless of how many files are being downloaded simultaneously.
- */
 class DownloadNotificationManager(
     private val context: Context,
     private val manager: NotificationManagerCompat,
@@ -31,7 +27,6 @@ class DownloadNotificationManager(
     private var lastNotifyTime = 0L
     private var lastActiveCount = -1
 
-    /** Posts or cancels the single download notification based on the current tasks. */
     fun post(tasks: List<DownloadTask>) {
         val active = tasks.filter { it.status.isActive }
         if (active.isEmpty()) {
@@ -51,7 +46,6 @@ class DownloadNotificationManager(
         }
     }
 
-    /** Removes the ongoing download notification. */
     fun cancel() {
         try {
             manager.cancel(UiValues.FOREGROUND_NOTIFICATION_ID)
@@ -61,7 +55,6 @@ class DownloadNotificationManager(
         lastActiveCount = -1
     }
 
-    /** Builds (without posting) the notification for [tasks]. Used for the foreground start. */
     fun build(tasks: List<DownloadTask>): Notification {
         val active = tasks.filter { it.status.isActive }
         return buildNotification(buildState(active))

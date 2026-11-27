@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_extraction_engine">Extraction engine</string>
+    <string name="extraction_engine_auto">Auto (hybrid)</string>
+    <string name="extraction_engine_ytdlp_only">yt-dlp only</string>
+    <string name="settings_legal_newpipe">This app can use NewPipeExtractor for YouTube extraction. NewPipeExtractor is free software licensed under GNU GPL-3.0; using it may place obligations on the combined work. Source: https://github.com/TeamNewPipe/NewPipeExtractor</string>
+    <string name="settings_legal_newpipe_attribution">NewPipeExtractor © Team NewPipe, GPL-3.0.</string>
+</resources>

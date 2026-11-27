@@ -85,7 +85,6 @@ fun DownloadQueuePanel(
                                 bottom = Dimens.queuePanelBottomPadding,
                             ),
                     shape = MaterialTheme.shapes.large,
-                    // Card-window: doesn't reach the bottom edge so the bar stays visible underneath.
                     color = MaterialTheme.colorScheme.surfaceContainerHigh,
                     tonalElevation = Dimens.xxs,
                     shadowElevation = Dimens.sm,

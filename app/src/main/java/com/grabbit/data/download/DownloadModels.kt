@@ -4,11 +4,9 @@ import com.grabbit.core.AppError
 import com.grabbit.core.Defaults
 import kotlinx.serialization.Serializable
 
-/** Whether a download produces a video or an audio file. */
 @Serializable
 enum class MediaType { VIDEO, AUDIO }
 
-/** Container/codec preset offered by the convert screen and used for downloads. */
 @Serializable
 enum class ConvertFormat(
     val ext: String,
@@ -26,26 +24,23 @@ enum class ConvertFormat(
     ;
 
     companion object {
-        /** Audio-only conversion targets. */
         val audioTargets: List<ConvertFormat> = listOf(MP3, M4A, OPUS, FLAC)
 
-        /** Video conversion targets. */
         val videoTargets: List<ConvertFormat> = listOf(MP4, MKV, WEBM)
 
-        /** Looks up a preset by file extension, ignoring case. */
         fun fromExt(ext: String?): ConvertFormat? = entries.firstOrNull { it.ext.equals(ext, ignoreCase = true) }
 
-        /** Targets that match [mediaType]. */
         fun targetsFor(mediaType: MediaType): List<ConvertFormat> =
-            if (mediaType == MediaType.AUDIO) audioTargets else videoTargets
+            when (mediaType) {
+                MediaType.AUDIO -> audioTargets
+                else -> videoTargets
+            }
     }
 }
 
-/** Options stored with each download and reused when re-downloading from history. */
 @Serializable
 data class DownloadOptions(
     val mediaType: MediaType = MediaType.VIDEO,
-    /** 0 means "best available". */
     val maxHeight: Int = 0,
     val container: String = Defaults.VIDEO_CONTAINER,
     val audioFormat: String = Defaults.AUDIO_FORMAT,
@@ -54,26 +49,20 @@ data class DownloadOptions(
     val embedMetadata: Boolean = true,
     val subtitles: Boolean = false,
     val sponsorBlock: Boolean = false,
-    /** Per-download SAF folder URI, overriding the global save folder. `null` = use the default. */
     val saveFolderUri: String? = null,
-    /** Custom file name without extension, or `null` to use the filename template. */
     val fileName: String? = null,
 ) {
-    /** Short human-readable summary shown in history and conversion results. */
     val formatLabel: String
         get() =
             when (mediaType) {
                 MediaType.AUDIO -> "${audioFormat.uppercase()} · $audioBitrate kbps"
-                MediaType.VIDEO ->
-                    if (maxHeight > 0) {
-                        "${maxHeight}p · ${container.uppercase()}"
-                    } else {
-                        "Best · ${container.uppercase()}"
-                    }
+                MediaType.VIDEO -> {
+                    val heightLabel = if (maxHeight > 0) "$maxHeight p" else "Best"
+                    "$heightLabel · ${container.uppercase()}"
+                }
             }
 }
 
-/** A user's download intent, before it becomes a queue task. */
 data class DownloadRequest(
     val url: String,
     val title: String,
@@ -82,15 +71,11 @@ data class DownloadRequest(
     val durationSeconds: Long,
     val site: String?,
     val options: DownloadOptions,
-    /** Position in the source playlist, used only for file naming. */
     val playlistIndex: Int? = null,
-    /** Fresh raw info JSON from the metadata fetch, reused by yt-dlp via `--load-info-json`. */
     val infoJsonPath: String? = null,
-    /** Wall-clock time when [infoJsonPath] was written. */
     val infoFetchedAtMs: Long = 0L,
 )
 
-/** Lifecycle of a queued download. */
 enum class TaskStatus {
     QUEUED,
     PREPARING,
@@ -102,7 +87,6 @@ enum class TaskStatus {
     FAILED,
     ;
 
-    /** Whether the task still occupies a slot in the queue. */
     val isActive: Boolean
         get() =
             this == QUEUED ||
@@ -110,12 +94,10 @@ enum class TaskStatus {
                 this == DOWNLOADING ||
                 this == SAVING
 
-    /** Whether the task can be removed from the queue. */
     val isFinished: Boolean
         get() = this == COMPLETED || this == CANCELLED || this == FAILED
 }
 
-/** One item in the download queue, including its current progress or error. */
 data class DownloadTask(
     val id: String,
     val request: DownloadRequest,

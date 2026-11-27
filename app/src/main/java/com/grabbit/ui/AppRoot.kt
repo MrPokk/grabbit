@@ -22,7 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
@@ -44,7 +44,6 @@ import com.grabbit.ui.theme.Motion
 import kotlinx.coroutines.flow.StateFlow
 import kotlin.math.roundToInt
 
-/** Root navigation host with the bottom bar for the main destinations. */
 @Composable
 fun AppRoot(
     incomingLink: StateFlow<String?>,
@@ -59,8 +58,7 @@ fun AppRoot(
     val link by incomingLink.collectAsStateWithLifecycle()
     val floatingState = rememberFloatingDownloadState()
     val imeBottom = WindowInsets.ime.asPaddingValues().calculateBottomPadding()
-    // Show the floating download circle only on the download and history screens;
-    // hide it immediately when opening the queue or settings (panel closed).
+
     val showWidget =
         (currentRoute == Routes.DOWNLOAD || currentRoute == Routes.HISTORY) &&
             queueSummary.count > 0
@@ -92,7 +90,7 @@ fun AppRoot(
             }
         },
     ) { padding ->
-        // With the keyboard open the bar sits under it; reserving its height here would lift the URL field twice.
+
         val contentPadding =
             if (currentRoute == Routes.DOWNLOAD && imeBottom > 0.dp) PaddingValues() else padding
         Box(
@@ -101,8 +99,6 @@ fun AppRoot(
                     .padding(contentPadding)
                     .fillMaxSize(),
         ) {
-            // Identical fade + slide transition for every route, so moving between screens
-            // feels consistent; the pop (back) transitions slide in the opposite direction.
             val density = LocalDensity.current
             val navSlidePx = (Motion.NavSlideDp.value * density.density).roundToInt()
             val navEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition = {
@@ -200,8 +196,7 @@ fun AppRoot(
 
 private fun NavController.navigateToTopLevel(route: String) {
     navigate(route) {
-        // Saved state is keyed to the start destination in a flat graph, so restoring it would
-        // put the tab being left back on top instead of the requested one.
+        // Saved state is keyed to the start destination in a flat graph; restoring it would re-show the tab being left.
         popUpTo(graph.findStartDestination().id)
         launchSingleTop = true
     }

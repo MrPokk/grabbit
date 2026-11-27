@@ -10,10 +10,6 @@ import javax.inject.Inject
 
 private const val TAG = "TikTokSearch"
 
-/**
- * TikTok has no public search API usable without request signing, so the provider
- * resolves video pages through a web search and reads metadata from each page.
- */
 class TikTokMediaSearchProvider
     @Inject
     constructor() : MediaSearchProvider {

@@ -13,6 +13,7 @@ import com.grabbit.core.Limits
 import com.grabbit.core.Storage
 import com.grabbit.core.stateInUi
 import com.grabbit.core.suspendRunCatching
+import com.grabbit.data.extract.ExtractionEnginePreference
 import com.grabbit.data.settings.AppSettings
 import com.grabbit.data.settings.SettingsRepository
 import com.grabbit.data.settings.ThemeMode
@@ -31,7 +32,6 @@ import javax.inject.Inject
 
 private const val TAG = "SettingsViewModel"
 
-/** Owns settings edits, per-app language changes, SAF folders and yt-dlp updates. */
 @HiltViewModel
 class SettingsViewModel
     @Inject
@@ -40,7 +40,6 @@ class SettingsViewModel
         private val repository: SettingsRepository,
         private val ytDlp: YtDlpEngine,
     ) : ViewModel() {
-        /** Progress and outcome of a yt-dlp update check. */
         data class UpdateState(
             val running: Boolean = false,
             val updated: Boolean = false,
@@ -65,12 +64,10 @@ class SettingsViewModel
             refreshVersion()
         }
 
-        /** Reads the installed yt-dlp version for display. */
         fun refreshVersion() {
             viewModelScope.launch { _ytDlpVersion.value = ytDlp.installedVersion() }
         }
 
-        /** Checks for a new yt-dlp release and refreshes the displayed version. */
         fun updateYtDlp() {
             if (_updateState.value.running) return
             _updateState.value = UpdateState(running = true)
@@ -86,62 +83,48 @@ class SettingsViewModel
             }
         }
 
-        /** Clears the snackbar message. */
         fun consumeMessage() {
             _message.value = null
         }
 
-        /** Persists the selected theme mode. */
         fun setTheme(mode: ThemeMode) = viewModelScope.launch { repository.setThemeMode(mode) }
 
-        /** Enables or disables dynamic colors. */
         fun setDynamicColor(enabled: Boolean) = viewModelScope.launch { repository.setDynamicColor(enabled) }
 
-        /** Persists the choice and applies it immediately (per-app language). */
         fun setLanguage(tag: String?) =
             viewModelScope.launch {
                 repository.setLanguage(tag)
                 Languages.apply(tag)
             }
 
-        /** Persists the default video height. */
         fun setVideoHeight(height: Int) = viewModelScope.launch { repository.setDefaultVideoHeight(height) }
 
-        /** Persists the default video container. */
         fun setVideoContainer(container: String) =
             viewModelScope.launch { repository.setDefaultVideoContainer(container) }
 
-        /** Persists the default audio format. */
         fun setAudioFormat(format: String) = viewModelScope.launch { repository.setDefaultAudioFormat(format) }
 
-        /** Persists the default audio bitrate. */
         fun setAudioBitrate(bitrate: Int) = viewModelScope.launch { repository.setDefaultAudioBitrate(bitrate) }
 
-        /** Persists the concurrent download limit. */
         fun setConcurrency(count: Int) = viewModelScope.launch { repository.setConcurrentDownloads(count) }
 
-        /** Enables or disables thumbnail embedding. */
         fun setEmbedThumbnail(enabled: Boolean) = viewModelScope.launch { repository.setEmbedThumbnail(enabled) }
 
-        /** Enables or disables metadata embedding. */
         fun setEmbedMetadata(enabled: Boolean) = viewModelScope.launch { repository.setEmbedMetadata(enabled) }
 
-        /** Enables or disables subtitle download. */
         fun setSubtitles(enabled: Boolean) = viewModelScope.launch { repository.setSubtitles(enabled) }
 
-        /** Enables or disables SponsorBlock removal. */
+        fun setExtractionEngine(preference: ExtractionEnginePreference) =
+            viewModelScope.launch { repository.setExtractionEngine(preference) }
+
         fun setSponsorBlock(enabled: Boolean) = viewModelScope.launch { repository.setSponsorBlock(enabled) }
 
-        /** Persists the output filename template. */
         fun setFilenameTemplate(template: String) = viewModelScope.launch { repository.setFilenameTemplate(template) }
 
-        /** Persists the proxy address. */
         fun setProxy(proxy: String) = viewModelScope.launch { repository.setProxy(proxy) }
 
-        /** Enables or disables automatic yt-dlp update checks. */
         fun setAutoCheckUpdates(enabled: Boolean) = viewModelScope.launch { repository.setAutoCheckUpdates(enabled) }
 
-        /** Takes a persistable grant when possible and stores the picked SAF tree. */
         fun setCustomFolder(uri: Uri) {
             viewModelScope.launch {
                 try {
@@ -150,20 +133,16 @@ class SettingsViewModel
                         Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
                     )
                 } catch (e: SecurityException) {
-                    // The URI grant is optional; SAF reads may still work without it.
                     AppLog.e(TAG, "could not persist the folder permission", e)
                 }
                 repository.setCustomFolder(uri.toString())
             }
         }
 
-        /** Returns downloads to MediaStore. */
         fun clearCustomFolder() = viewModelScope.launch { repository.setCustomFolder(null) }
 
-        /** Removes the stored cookies file. */
         fun clearCookies() = viewModelScope.launch { repository.setCookies(null, null) }
 
-        /** Copies a Netscape cookies file into app storage and validates its header. */
         fun importCookies(uri: Uri) {
             viewModelScope.launch {
                 val imported =

@@ -5,22 +5,16 @@ import com.grabbit.R
 
 private const val MAX_CAUSE_DEPTH = 3
 
-/**
- * A user-facing error. [messageRes] is what the UI shows, [technical] keeps the
- * raw yt-dlp / ffmpeg text for logging and for the expandable details block.
- */
 data class AppError(
     @StringRes val messageRes: Int,
     val technical: String? = null,
     val suggestUpdate: Boolean = false,
 ) {
     companion object {
-        /** Fallback error for failures that do not match any known yt-dlp / ffmpeg pattern. */
         fun unknown(technical: String? = null) = AppError(R.string.error_unknown, technical)
     }
 }
 
-/** Recognizes failures that mean a cached info JSON's format URLs are no longer valid. */
 object ErrorSignals {
     private val expiredNeedles =
         listOf(
@@ -33,15 +27,41 @@ object ErrorSignals {
             "signature expired",
         )
 
-    /** True when yt-dlp output points at an expired/blocked format URL rather than a broken link. */
-    fun isExpiredFormatUrl(raw: String?): Boolean {
+    private val authenticationNeedles =
+        listOf(
+            "private video",
+            "this video is private",
+            "login required",
+            "sign in to confirm you're not a bot",
+        )
+
+    private val transientNeedles =
+        listOf(
+            "http error 403",
+            "http error 429",
+            "http error 5",
+            "timed out",
+            "timeout",
+            "connection reset",
+            "temporary failure in name resolution",
+        )
+
+    fun isExpiredFormatUrl(raw: String?): Boolean = containsAny(raw, expiredNeedles)
+
+    fun isAuthenticationRequired(raw: String?): Boolean = containsAny(raw, authenticationNeedles)
+
+    fun isTransientDownloadFailure(raw: String?): Boolean = containsAny(raw, transientNeedles)
+
+    private fun containsAny(
+        raw: String?,
+        needles: List<String>,
+    ): Boolean {
         if (raw.isNullOrBlank()) return false
         val text = raw.lowercase()
-        return expiredNeedles.any { text.contains(it) }
+        return needles.any { text.contains(it) }
     }
 }
 
-/** Maps raw yt-dlp / ffmpeg output to user-facing [AppError]s. */
 object ErrorMapper {
     private data class Rule(
         val needles: List<String>,
@@ -58,16 +78,6 @@ object ErrorMapper {
                     "inappropriate for some users",
                 ),
                 AppError(R.string.error_age, suggestUpdate = false),
-            ),
-            Rule(
-                listOf(
-                    "private video",
-                    "this video is private",
-                    "login required",
-                    "sign in to confirm you're not a bot",
-                    "cookies",
-                ),
-                AppError(R.string.error_private),
             ),
             Rule(
                 listOf(
@@ -145,7 +155,6 @@ object ErrorMapper {
             ),
         )
 
-    /** Maps yt-dlp output to an error; [url] disambiguates "unsupported url" for the submitted link. */
     fun fromYtDlp(
         raw: String?,
         url: String? = null,
@@ -153,27 +162,26 @@ object ErrorMapper {
         if (raw.isNullOrBlank()) return AppError.unknown()
         val text = raw.lowercase()
         val rule = rules.firstOrNull { r -> r.needles.any { text.contains(it) } }
-        // "unsupported url" is only meaningful when yt-dlp is complaining about
-        // the link the user submitted. A bad marker argument or a local path
-        // must not be disguised as "site not supported" — keep the raw text.
-        val unsupportedForSubmittedUrl =
-            url != null &&
-                text.contains(url.lowercase()) &&
-                (
-                    text.contains("unsupported url") ||
-                        text.contains("is not a valid url") ||
-                        text.contains("no suitable extractor")
-                )
         val error =
             when {
+                ErrorSignals.isAuthenticationRequired(raw) -> AppError(R.string.error_private)
                 rule != null -> rule.error
-                unsupportedForSubmittedUrl -> AppError(R.string.error_unsupported)
+                isUnsupportedForSubmittedUrl(text, url) -> AppError(R.string.error_unsupported)
                 else -> AppError.unknown(raw.takeLast(Limits.ERROR_TECHNICAL_DETAIL_CHARS))
             }
         return error.copy(technical = raw.takeLast(Limits.ERROR_TECHNICAL_TAIL_CHARS))
     }
 
-    /** Uses the exception chain as the technical text so nested causes stay visible. */
+    private fun isUnsupportedForSubmittedUrl(
+        text: String,
+        url: String?,
+    ): Boolean =
+        // "unsupported url" only counts when yt-dlp complains about the submitted link;
+        // a bad marker argument or a local path must not be disguised as "site not supported".
+        url != null &&
+            text.contains(url.lowercase()) &&
+            listOf("unsupported url", "is not a valid url", "no suitable extractor").any { text.contains(it) }
+
     fun fromThrowable(t: Throwable): AppError {
         val message =
             buildString {

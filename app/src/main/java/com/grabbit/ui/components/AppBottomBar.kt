@@ -41,8 +41,6 @@ private val FabOffset = -Dimens.sm
 private val FabSize = Dimens.iconLg + Dimens.sm
 private val FabCenterY = FabOffset + FabSize * UiValues.MIDPOINT
 
-// The cradle blob grows when Download is selected; the wider middle gap keeps both items clear of it.
-// Side gaps are trimmed in favour of item width so long Russian labels stay on one line; the centre stays put.
 private const val CENTER_GAP_WEIGHT = 2f
 private const val NAV_ITEM_WEIGHT = 1.5f
 private const val SIDE_GAP_WEIGHT = 0.5f

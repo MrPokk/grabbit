@@ -12,16 +12,13 @@ import javax.inject.Inject
 
 private const val TAG = "YouTubeSearch"
 
-/** Platform search URLs understood by yt-dlp. */
 object SearchTargets {
-    /** yt-dlp's pseudo-URL for a YouTube search. */
     fun youtube(
         query: String,
         limit: Int,
     ): String = "ytsearch${limit.coerceIn(1, Limits.MAX_SEARCH_RESULTS)}:${query.trim()}"
 }
 
-/** Searches YouTube through yt-dlp's `ytsearch` extractor. */
 class YouTubeMediaSearchProvider
     @Inject
     constructor(
@@ -38,7 +35,17 @@ class YouTubeMediaSearchProvider
             if (trimmed.isEmpty()) return emptyList()
             val target = SearchTargets.youtube(trimmed, limit)
             return try {
-                ytDlp.fetch(target, loadMixAsPlaylist = false).toSearchResults(platform)
+                ytDlp
+                    .fetch(
+                        target,
+                        loadMixAsPlaylist = false,
+                        processId =
+                            java.util.UUID
+                                .randomUUID()
+                                .toString(),
+                        bypassCache = false,
+                        trace = null,
+                    ).toSearchResults(platform)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: InfoException) {

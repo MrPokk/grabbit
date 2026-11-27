@@ -18,7 +18,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/** Owns the queue screen state and forwards task actions to the download layer. */
 @HiltViewModel
 class QueueViewModel
     @Inject
@@ -56,7 +55,6 @@ class QueueViewModel
             engine.remove(id)
         }
 
-        /** Deletes the saved file first, then drops the task only when deletion succeeded. */
         fun deleteFromDevice(task: DownloadTask) {
             viewModelScope.launch {
                 val uri = task.savedUri

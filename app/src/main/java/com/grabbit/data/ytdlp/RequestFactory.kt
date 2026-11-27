@@ -11,7 +11,6 @@ import com.grabbit.data.download.MediaType
 import com.yausername.youtubedl_android.YoutubeDLRequest
 import java.io.File
 
-/** Everything yt-dlp needs to run a single download. */
 data class DownloadSpec(
     val taskId: String,
     val url: String,
@@ -22,23 +21,12 @@ data class DownloadSpec(
     val cookiesPath: String?,
     val proxy: String?,
     val markerFile: File,
-    /** Per-download SAF folder URI, overriding the global save folder. `null` = use the default. */
     val saveFolderUri: String? = null,
-    /** Custom file name without extension, or `null` to use the filename template. */
     val fileName: String? = null,
-    /** Fresh `--dump-single-json` output; lets yt-dlp skip extracting the link again. */
     val infoJsonPath: String? = null,
 )
 
-/** Builds yt-dlp requests; option order matters for some multi-argument flags. */
 object RequestFactory {
-    /**
-     * Metadata request used by [com.grabbit.data.ytdlp.YtDlpEngine.fetch].
-     *
-     * YouTube Mix/radio URLs (`list=RD…`): by default they are fetched as
-     * the single video (`--no-playlist`). With [loadMixAsPlaylist] they are
-     * returned as a bounded playlist (`--playlist-end`, [Limits.MIX_PLAYLIST_END]).
-     */
     fun buildFetchRequest(
         url: String,
         loadMixAsPlaylist: Boolean,
@@ -49,7 +37,6 @@ object RequestFactory {
             "youtube:player_client=${YtDlpArgs.FETCH_PLAYER_CLIENT}",
         )
 
-    /** Variant that allows specifying the full YouTube extractor arguments for fallback logic. */
     fun buildFetchRequestWithExtractorArgs(
         url: String,
         loadMixAsPlaylist: Boolean,
@@ -73,7 +60,6 @@ object RequestFactory {
             }
         }
 
-    /** Builds the download request for [spec], including conversion and cookies options. */
     fun build(spec: DownloadSpec): YoutubeDLRequest {
         val options = spec.options
         val request = YoutubeDLRequest(spec.url)
@@ -88,12 +74,10 @@ object RequestFactory {
         request.addOption("--concurrent-fragments", YtDlpArgs.CONCURRENT_FRAGMENTS)
         request.addOption("--socket-timeout", Timing.DOWNLOAD_SOCKET_TIMEOUT_SECONDS)
 
-        // Reuse the metadata extraction: the URL argument is ignored by yt-dlp in this mode.
+        // Reuse the metadata extraction; the URL argument is ignored by yt-dlp in this mode.
         spec.infoJsonPath?.let { path -> request.addOption("--load-info-json", path) }
 
-        // --print-to-file takes TEMPLATE and FILE. They must be consecutive
-        // arguments: two separate addOption calls make yt-dlp read the second
-        // option as the FILE and treat the marker path as a URL.
+        // --print-to-file takes TEMPLATE and FILE consecutively; otherwise yt-dlp misreads the marker path as a URL.
         request.addCommands(
             listOf("--print-to-file", "after_move:filepath", spec.markerFile.absolutePath),
         )
@@ -108,18 +92,17 @@ object RequestFactory {
             ),
         )
 
-        // Items are downloaded from their own URLs. Dynamic mixes change their
-        // contents between extraction and download, so playlist positions are
-        // only used for file naming, never to select a playlist entry again.
+        // Items are downloaded from their own URLs. Dynamic mixes change contents between extraction and download,
+        // so playlist positions are only used for file naming, never to select a playlist entry again.
         request.addOption("--no-playlist")
 
         if (options.mediaType == MediaType.AUDIO) {
             request.addOption("-f", "ba/b")
             request.addOption("-x")
             request.addOption("--audio-format", options.audioFormat)
-            // 0 is yt-dlp's "best" quality; explicit bitrates are kept for lower presets.
             request.addOption(
                 "--audio-quality",
+                // 0 is yt-dlp's "best" quality; explicit bitrates are kept for lower presets.
                 if (options.audioBitrate >= Defaults.MAX_AUDIO_BITRATE_KBPS) "0" else "${options.audioBitrate}K",
             )
         } else {
@@ -150,28 +133,14 @@ object RequestFactory {
         return request
     }
 
-    /** Sanitizes the user template, ensures an extension and prefixes a playlist index if set. */
     fun outputTemplate(
         template: String,
         playlistIndex: Int? = null,
         fileName: String? = null,
-    ): String {
-        // A custom file name (single video only) takes precedence over the template.
-        val base = fileName.takeIf { it?.isNotBlank() == true } ?: template
-        val cleaned =
-            base
-                .replace("/", "-")
-                .replace("\\", "-")
-                .ifBlank { "%(title)s" }
-        val withExt = if (cleaned.contains("%(ext)s")) cleaned else "$cleaned.%(ext)s"
-        return if (playlistIndex != null) {
-            "${playlistIndex.toString().padStart(YtDlpArgs.PLAYLIST_INDEX_PAD, '0')} - $withExt"
-        } else {
-            withExt
-        }
-    }
+    ): String =
+        com.grabbit.core.FilenameTemplate
+            .outputTemplate(template, playlistIndex, fileName)
 
-    /** yt-dlp format selector for [options], preferring matching containers and heights. */
     fun formatSelector(options: DownloadOptions): String {
         if (options.mediaType == MediaType.AUDIO) return "ba/b"
         val limit = if (options.maxHeight > 0) "[height<=${options.maxHeight}]" else ""

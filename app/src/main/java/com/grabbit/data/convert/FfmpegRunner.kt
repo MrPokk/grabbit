@@ -22,13 +22,6 @@ import javax.inject.Singleton
 
 private const val TAG = "FfmpegRunner"
 
-/**
- * Runs the FFmpeg binary that ships inside youtubedl-android.
- *
- * The binary is packaged as `libffmpeg.so` in the native library dir (that is
- * the only way to ship an executable inside an APK), and its shared libraries
- * are unzipped by the ffmpeg module into `noBackupFilesDir`.
- */
 @Singleton
 class FfmpegRunner
     @Inject
@@ -41,10 +34,8 @@ class FfmpegRunner
         @Volatile
         private var initialized = false
 
-        /** Whether the bundled FFmpeg executable has been unpacked. */
         fun isAvailable(): Boolean = binary().exists()
 
-        /** Unpacks the bundled FFmpeg payload. Safe to call from anywhere. */
         suspend fun ensureInitialized() {
             if (initialized) return
             initLock.withLock {
@@ -54,7 +45,6 @@ class FfmpegRunner
             }
         }
 
-        /** Stops a conversion started with the same [key]. */
         fun cancel(key: String) {
             active[key]?.let { process ->
                 try {
@@ -66,10 +56,6 @@ class FfmpegRunner
             }
         }
 
-        /**
-         * Converts [input] into [output], trying stream copy before re-encoding for video.
-         * Reports progress as whole percent points through [onProgress].
-         */
         suspend fun convert(
             input: File,
             output: File,
@@ -80,29 +66,155 @@ class FfmpegRunner
         ): Result<Unit> =
             withContext(Dispatchers.IO) {
                 ensureInitialized()
-                if (!isAvailable()) {
-                    return@withContext Result.failure(IllegalStateException("FFmpeg is not available"))
-                }
+                if (!isAvailable()) return@withContext Result.failure(IllegalStateException("FFmpeg is not available"))
                 val durationMs = durationMs(input)
-
                 if (target.audioOnly) {
-                    val args = buildArgs(input, output, audioCodecArgs(target, bitrate))
-                    return@withContext execute(args, key, durationMs, onProgress)
+                    return@withContext execute(
+                        buildArgs(input, output, audioCodecArgs(target, bitrate)),
+                        key,
+                        durationMs,
+                        onProgress,
+                    )
                 }
-
-                // Video: try a stream copy first (fast and lossless), fall back to a
-                // re-encode when the source codecs are not compatible with the target.
                 val copy = execute(buildArgs(input, output, listOf("-c", "copy")), key, durationMs, onProgress)
                 if (copy.isSuccess) return@withContext copy
-
                 output.delete()
                 val encodeArgs =
                     buildArgs(
-                        input = input,
-                        output = output,
-                        codecArgs = audioCodecArgs(ConvertFormat.M4A, bitrate) + videoCodecArgs(target),
+                        input,
+                        output,
+                        audioCodecArgs(ConvertFormat.M4A, bitrate) + videoCodecArgs(target),
                     )
                 execute(encodeArgs, key, durationMs, onProgress)
+            }
+
+        /** Merge video + audio by copying streams (no re-encode) into [output]. */
+        suspend fun mergeCopy(
+            video: File,
+            audio: File,
+            output: File,
+            key: String?,
+        ): Result<Unit> =
+            withContext(Dispatchers.IO) {
+                ensureInitialized()
+                if (!isAvailable()) return@withContext Result.failure(IllegalStateException("FFmpeg is not available"))
+                execute(
+                    listOf(
+                        "-y",
+                        "-hide_banner",
+                        "-nostdin",
+                        "-loglevel",
+                        "error",
+                        "-i",
+                        video.absolutePath,
+                        "-i",
+                        audio.absolutePath,
+                        "-map",
+                        "0:v",
+                        "-map",
+                        "1:a",
+                        "-c",
+                        "copy",
+                        output.absolutePath,
+                    ),
+                    key,
+                    0L,
+                    null,
+                )
+            }
+
+        /** Audio-only conversion that can embed cover art (jpg) + metadata, like yt-dlp's audio path. */
+        suspend fun convertAudioEmbed(args: AudioEmbedArgs): Result<Unit> =
+            withContext(Dispatchers.IO) {
+                val input = args.input
+                val output = args.output
+                val target = args.target
+                val bitrate = args.bitrate
+                val coverJpg = args.coverJpg
+                val metadataTitle = args.metadataTitle
+                val metadataArtist = args.metadataArtist
+                val key = args.key
+                ensureInitialized()
+                if (!isAvailable()) return@withContext Result.failure(IllegalStateException("FFmpeg is not available"))
+                val durationMs = durationMs(input)
+                execute(
+                    buildEmbedArgs(input, output, target, bitrate, coverJpg, metadataTitle, metadataArtist),
+                    key,
+                    durationMs,
+                    null,
+                )
+            }
+
+        /** Convert any image (e.g. WebP thumbnail) to a baseline JPEG. */
+        suspend fun convertThumbnailToJpg(
+            input: File,
+            output: File,
+            key: String?,
+        ): Result<Unit> =
+            withContext(Dispatchers.IO) {
+                ensureInitialized()
+                if (!isAvailable()) return@withContext Result.failure(IllegalStateException("FFmpeg is not available"))
+                execute(
+                    listOf(
+                        "-y",
+                        "-hide_banner",
+                        "-nostdin",
+                        "-loglevel",
+                        "error",
+                        "-i",
+                        input.absolutePath,
+                        "-frames:v",
+                        "1",
+                        output.absolutePath,
+                    ),
+                    key,
+                    0L,
+                    null,
+                )
+            }
+
+        private fun buildEmbedArgs(
+            input: File,
+            output: File,
+            target: ConvertFormat,
+            bitrate: Int,
+            coverJpg: File?,
+            metadataTitle: String?,
+            metadataArtist: String?,
+        ): List<String> {
+            val embedCover = coverJpg != null && target != ConvertFormat.OPUS
+            val args =
+                mutableListOf(
+                    "-y",
+                    "-hide_banner",
+                    "-nostdin",
+                    "-loglevel",
+                    "error",
+                    "-i",
+                    input.absolutePath,
+                )
+            if (embedCover) args += listOf("-i", coverJpg.absolutePath)
+            args += "-map"
+            args += "0:a"
+            if (embedCover) args += listOf("-map", "1:v", "-c:v", "mjpeg", "-disposition:v", "attached_pic")
+            args += audioOnlyCodecArgs(target, bitrate)
+            if (target == ConvertFormat.MP3) args += listOf("-id3v2_version", "3")
+            metadataTitle?.takeIf { it.isNotBlank() }?.let { args += listOf("-metadata", "title=$it") }
+            metadataArtist?.takeIf { it.isNotBlank() }?.let { args += listOf("-metadata", "artist=$it") }
+            args += output.absolutePath
+            return args
+        }
+
+        private fun audioOnlyCodecArgs(
+            target: ConvertFormat,
+            bitrate: Int,
+        ): List<String> =
+            when (target) {
+                ConvertFormat.MP3 -> listOf("-c:a", "libmp3lame", "-b:a", "${bitrate}k")
+                ConvertFormat.M4A -> listOf("-c:a", "aac", "-b:a", "${bitrate}k")
+                ConvertFormat.OPUS -> listOf("-c:a", "libopus", "-b:a", "${bitrate}k")
+                ConvertFormat.FLAC -> listOf("-c:a", "flac")
+                else -> listOf("-c:a", "aac", "-b:a", "${bitrate}k")
             }
 
         private fun audioCodecArgs(
@@ -175,10 +287,9 @@ class FfmpegRunner
             onProgress: ((Int) -> Unit)?,
         ): Result<Unit> {
             val process = startProcess(args).getOrElse { return Result.failure(it) }
-            key?.let { active[it] = process }
+            if (key != null) active[key] = process
             val stderr = StringBuilder()
             val stderrReader = readStderr(process, stderr)
-
             return try {
                 consumeProgress(process, durationMs, onProgress)
                 val code = process.waitFor()
@@ -186,20 +297,20 @@ class FfmpegRunner
                 if (code == 0) {
                     Result.success(Unit)
                 } else {
-                    Result.failure(
-                        IllegalStateException(
-                            stderr.toString().ifBlank { "ffmpeg exited with code $code" },
-                        ),
-                    )
+                    Result.failure(IllegalStateException(stderr.toString().ifBlank { "ffmpeg exited with code $code" }))
                 }
-            } catch (e: IOException) {
+            } catch (
+                e: IOException,
+            ) {
                 process.destroy()
                 Result.failure(e)
-            } catch (e: InterruptedException) {
+            } catch (
+                e: InterruptedException,
+            ) {
                 process.destroy()
                 Result.failure(e)
             } finally {
-                key?.let { active.remove(it) }
+                if (key != null) active.remove(key)
             }
         }
 
@@ -242,9 +353,10 @@ class FfmpegRunner
             durationMs: Long,
             onProgress: ((Int) -> Unit)?,
         ) {
+            if (onProgress == null) return
             process.inputStream.bufferedReader().forEachLine { line ->
                 val micros = progressMicros(line)
-                if (micros != null && micros > 0 && durationMs > 0 && onProgress != null) {
+                if (micros != null && micros > 0 && durationMs > 0) {
                     val fraction = micros / Formatting.MICROS_PER_MILLIS / durationMs
                     val percent =
                         (fraction * Formatting.PERCENT_SCALE)
@@ -274,24 +386,34 @@ class FfmpegRunner
             val retriever = MediaMetadataRetriever()
             return try {
                 retriever.setDataSource(file.absolutePath)
-                retriever
-                    .extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
-                    ?.toLongOrNull() ?: 0L
-            } catch (e: IllegalArgumentException) {
-                AppLog.e(TAG, "could not read the media duration", e)
-                0L
-            } catch (e: SecurityException) {
-                AppLog.e(TAG, "could not read the media duration", e)
-                0L
-            } catch (e: IllegalStateException) {
-                AppLog.e(TAG, "could not read the media duration", e)
-                0L
+                retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+            } catch (
+                e: IllegalArgumentException,
+            ) {
+                durationReadError(e)
+            } catch (
+                e: SecurityException,
+            ) {
+                durationReadError(e)
+            } catch (
+                e: IllegalStateException,
+            ) {
+                durationReadError(e)
             } finally {
-                try {
-                    retriever.release()
-                } catch (e: IllegalStateException) {
-                    AppLog.e(TAG, "could not release the media retriever", e)
-                }
+                releaseQuietly(retriever)
+            }
+        }
+
+        private fun durationReadError(e: Exception): Long {
+            AppLog.e(TAG, "could not read the media duration", e)
+            return 0L
+        }
+
+        private fun releaseQuietly(retriever: MediaMetadataRetriever) {
+            try {
+                retriever.release()
+            } catch (e: IllegalStateException) {
+                AppLog.e(TAG, "could not release the media retriever", e)
             }
         }
 
@@ -300,3 +422,15 @@ class FfmpegRunner
         private fun libDir(): File =
             File(File(context.noBackupFilesDir, "youtubedl-android/packages/ffmpeg"), "usr/lib")
     }
+
+/** Arguments for [FfmpegRunner.convertAudioEmbed]. */
+data class AudioEmbedArgs(
+    val input: File,
+    val output: File,
+    val target: ConvertFormat,
+    val bitrate: Int,
+    val coverJpg: File?,
+    val metadataTitle: String?,
+    val metadataArtist: String?,
+    val key: String?,
+)

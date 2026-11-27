@@ -18,7 +18,6 @@ import javax.inject.Inject
 private const val TAG = "GrabbitApp"
 private const val CRASH_TAG = "GrabbitCrash"
 
-/** Application entry point: installs crash logging and warms up yt-dlp off the main thread. */
 @HiltAndroidApp
 class GrabbitApp : Application() {
     @Inject
@@ -34,8 +33,6 @@ class GrabbitApp : Application() {
         installCrashLogger()
         DownloadService.createChannels(this)
 
-        // Unpack the bundled python / yt-dlp / ffmpeg binaries off the main thread
-        // so the first download does not have to wait for it.
         appScope.launch {
             val startedAt = FetchTrace.startedAt()
             suspendRunCatching { ytDlp.ensureInitialized() }
@@ -45,7 +42,6 @@ class GrabbitApp : Application() {
         appScope.launch { autoUpdateIfDue() }
     }
 
-    /** Keeps crashes visible in logcat (`adb logcat -s GrabbitCrash`). */
     private fun installCrashLogger() {
         val previous = Thread.getDefaultUncaughtExceptionHandler() ?: return
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->

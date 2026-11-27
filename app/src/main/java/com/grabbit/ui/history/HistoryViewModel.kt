@@ -27,7 +27,6 @@ import javax.inject.Inject
 
 private const val TAG = "HistoryViewModel"
 
-/** Filters history entries and re-enqueues saved downloads. */
 @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class HistoryViewModel
@@ -51,17 +50,14 @@ class HistoryViewModel
                 .flatMapLatest { value -> dao.observe(value.trim()) }
                 .stateInUi(viewModelScope, emptyList())
 
-        /** Updates the debounced history filter. */
         fun setQuery(value: String) {
             _query.value = value
         }
 
-        /** Removes one entry from history, keeping its file. */
         fun remove(entity: HistoryEntity) {
             viewModelScope.launch { dao.delete(entity) }
         }
 
-        /** Deletes the saved file first, then drops the entry only when deletion succeeded. */
         fun deleteFromDevice(entity: HistoryEntity) {
             viewModelScope.launch {
                 if (deleter.delete(entity.uri)) {
@@ -76,7 +72,6 @@ class HistoryViewModel
             _message.value = null
         }
 
-        /** Re-enqueues a saved download, falling back to defaults for unreadable options. */
         fun redownload(entity: HistoryEntity) {
             val options =
                 try {

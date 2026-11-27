@@ -7,7 +7,6 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
-/** Timeouts, delays and polling intervals shared by the app. */
 object Timing {
     val FETCH_TIMEOUT: Duration = 60.seconds
     val PROGRESS_THROTTLE: Duration = 250.milliseconds
@@ -16,7 +15,6 @@ object Timing {
     val FLOW_SUBSCRIPTION_GRACE: Duration = 5.seconds
     val SEARCH_DEBOUNCE: Duration = 150.milliseconds
 
-    /** oEmbed must answer fast; anything slower is not worth blocking the instant preview on. */
     const val OEMBED_TIMEOUT_MS = 3_000
     const val NAV_ANIMATION_DURATION_MS = 250
     const val FLOATING_SNAP_DURATION_MS = 220
@@ -34,14 +32,12 @@ object Timing {
     const val MINUTES_PER_HOUR = 60
 }
 
-/** Network defaults shared by the plain HTTP helpers. */
 object Net {
     const val USER_AGENT =
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
             "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"
 }
 
-/** User-selectable defaults. They are shared by settings, downloads and conversion. */
 object Defaults {
     const val MIN_AUDIO_BITRATE_KBPS = 128
     const val AUDIO_BITRATE_KBPS = 192
@@ -54,7 +50,6 @@ object Defaults {
     const val CONCURRENT_DOWNLOADS = 2
 }
 
-/** Hard bounds used when parsing external data or generating file names. */
 object Limits {
     const val MAX_PLAYLIST_ITEMS = 200
     const val MIX_PLAYLIST_END = 50
@@ -69,13 +64,11 @@ object Limits {
     const val MIN_HOST_LENGTH = 3
 }
 
-/** File-copy and file-name limits. */
 object Storage {
     const val COPY_BUFFER_BYTES = 64 * 1024
     const val COOKIES_FILE_NAME = "cookies.txt"
 }
 
-/** Number formats and thresholds used by [Formatters] and progress calculations. */
 object Formatting {
     const val BYTES_BASE = 1024
     const val BYTES_PRECISION = 10
@@ -92,50 +85,34 @@ object Formatting {
     const val FPS_THRESHOLD = 50
 }
 
-/** Cache sizes and lifetimes for metadata that is reused by the fetch and download flows. */
 object Cache {
-    /** Number of fetch results kept in memory; reopening a recent link should never hit yt-dlp. */
     const val FETCH_MEMORY_ENTRIES = 20
 
-    /** Parsed fetch results are reused for a few minutes only; formats and view counts go stale. */
     val FETCH_TTL: Duration = 5.minutes
 
-    /** Disk entries are evicted only after several TTLs so a short burst of links still fits. */
     const val FETCH_EVICT_MULTIPLIER = 4
 
-    /** Raw `--dump-single-json` output is reused by downloads, but its format URLs expire. */
     val INFO_JSON_TTL: Duration = 1.hours
 
-    /** Raw info files are kept longer than their usable lifetime so a failed download can inspect them. */
     val INFO_JSON_RETENTION: Duration = 6.hours
 
-    /** Cache-directory name for raw `--dump-single-json` files. */
     const val INFO_DIR = "info-json"
 }
 
-/** yt-dlp arguments that are not user settings. */
 object YtDlpArgs {
     const val FETCH_EXTRACTOR_RETRIES = 2
     const val DOWNLOAD_RETRIES = 5
     const val CONCURRENT_FRAGMENTS = 4
     const val PLAYLIST_INDEX_PAD = 2
 
-    // Fastest YouTube player client for metadata extraction (android_music is typically fastest)
-    // Fallback order: android_music > android > mweb > tv_embedded
+    // Fastest YouTube player client for metadata; fallback order: android_music > android > mweb > tv_embedded.
     const val FETCH_PLAYER_CLIENT = "android_music"
     const val FETCH_PLAYER_CLIENT_FALLBACK = "android"
 
-    /**
-     * Experiment: skip the YouTube webpage/configs/JS requests and use the iOS client.
-     * Fewer formats and less stable than the default client, so it stays opt-in until
-     * a device measurement shows a clear win. [EXPERIMENTAL_YOUTUBE_CLIENT_ENABLED]
-     * controls whether [com.grabbit.data.ytdlp.YtDlpEngine] tries it first.
-     */
     const val EXPERIMENTAL_YOUTUBE_EXTRACTOR_ARGS = "youtube:player_skip=webpage,configs,js;player_client=ios"
     const val EXPERIMENTAL_YOUTUBE_CLIENT_ENABLED = false
 }
 
-/** FFmpeg arguments and resource limits. */
 object FfmpegArgs {
     const val CRF = 22
     const val VP9_CRF = 34
@@ -144,7 +121,6 @@ object FfmpegArgs {
     const val FASTSTART_AUDIO_BITRATE_KBPS = Defaults.AUDIO_BITRATE_KBPS
 }
 
-/** Fixed values exposed to the UI: notification id, sliders and preset lists. */
 object UiValues {
     const val FOREGROUND_NOTIFICATION_ID = 1000
     const val PROGRESS_MAX = Formatting.PERCENT_SCALE
