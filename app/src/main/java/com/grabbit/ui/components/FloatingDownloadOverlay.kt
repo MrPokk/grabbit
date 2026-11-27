@@ -107,14 +107,16 @@ fun FloatingDownloadOverlay(
     }
 
     Box(modifier.fillMaxSize().onSizeChanged { containerSize = it }) {
+        val targetHalf = with(LocalDensity.current) { (Dimens.gooTapTargetSize / 2).roundToPx() }
+        val centerX = horizontalPosition.value.roundToInt()
+        val centerY = verticalPosition.value.roundToInt()
+
+        // Visual circle (36dp) — original positioning (top-left at position, content centered inside)
         Box(
             modifier =
                 Modifier
                     .offset {
-                        IntOffset(
-                            horizontalPosition.value.roundToInt(),
-                            verticalPosition.value.roundToInt(),
-                        )
+                        IntOffset(centerX, centerY)
                     }.size(Dimens.gooCircleSize),
         ) {
             if (!isDragging && blobPresence > 0f) {
@@ -135,76 +137,78 @@ fun FloatingDownloadOverlay(
                 edge = state.edge,
                 isDragging = isDragging,
             )
-            Box(
-                modifier =
-                    Modifier
-                        .size(Dimens.gooTapTargetSize)
-                        .align(Alignment.Center)
-                        .pointerInput(Unit) { detectTapGestures(onTap = { state.expand() }) }
-                        .pointerInput(bounds) {
-                            detectDragGestures(
-                                onDragStart = {
-                                    isDragging = true
-                                    docked = false
-                                },
-                                onDrag = { change, delta ->
-                                    change.consume()
-                                    scope.launch {
-                                        horizontalPosition.snapTo(
-                                            (horizontalPosition.value + delta.x).coerceIn(
-                                                bounds.minLeft,
-                                                bounds.maxLeft,
-                                            ),
-                                        )
-                                        verticalPosition.snapTo(
-                                            (verticalPosition.value + delta.y).coerceIn(
-                                                bounds.minTop,
-                                                bounds.maxTop,
-                                            ),
-                                        )
-                                    }
-                                },
-                                onDragEnd = {
-                                    isDragging = false
-                                    val draggedEdge =
-                                        if (
-                                            horizontalPosition.value + widgetSizePx * UiValues.MIDPOINT <
-                                            bounds.usableCenter
-                                        ) {
-                                            DockEdge.LEFT
-                                        } else {
-                                            DockEdge.RIGHT
-                                        }
-                                    val draggedFraction = bounds.fractionFor(verticalPosition.value)
-                                    state.dock(draggedEdge, draggedFraction)
-                                    scope.launch {
-                                        snapToDock(
-                                            bounds,
-                                            horizontalPosition,
-                                            verticalPosition,
-                                            draggedEdge,
-                                            draggedFraction,
-                                        )
-                                        if (!isDragging) docked = true
-                                    }
-                                },
-                                onDragCancel = {
-                                    isDragging = false
-                                    scope.launch {
-                                        snapToDock(
-                                            bounds,
-                                            horizontalPosition,
-                                            verticalPosition,
-                                            state.edge,
-                                            state.verticalFraction,
-                                        )
-                                        docked = true
-                                    }
-                                },
-                            )
-                        },
-            )
         }
+        // Tap/drag target (80dp) — centered on same position, not clipped
+        Box(
+            modifier =
+                Modifier
+                    .offset {
+                        IntOffset(centerX - targetHalf, centerY - targetHalf)
+                    }.size(Dimens.gooTapTargetSize)
+                    .pointerInput(Unit) { detectTapGestures(onTap = { state.expand() }) }
+                    .pointerInput(bounds) {
+                        detectDragGestures(
+                            onDragStart = {
+                                isDragging = true
+                                docked = false
+                            },
+                            onDrag = { change, delta ->
+                                change.consume()
+                                scope.launch {
+                                    horizontalPosition.snapTo(
+                                        (horizontalPosition.value + delta.x).coerceIn(
+                                            bounds.minLeft,
+                                            bounds.maxLeft,
+                                        ),
+                                    )
+                                    verticalPosition.snapTo(
+                                        (verticalPosition.value + delta.y).coerceIn(
+                                            bounds.minTop,
+                                            bounds.maxTop,
+                                        ),
+                                    )
+                                }
+                            },
+                            onDragEnd = {
+                                isDragging = false
+                                val draggedEdge =
+                                    if (
+                                        horizontalPosition.value + widgetSizePx * UiValues.MIDPOINT <
+                                        bounds.usableCenter
+                                    ) {
+                                        DockEdge.LEFT
+                                    } else {
+                                        DockEdge.RIGHT
+                                    }
+                                val draggedFraction = bounds.fractionFor(verticalPosition.value)
+                                state.dock(draggedEdge, draggedFraction)
+                                scope.launch {
+                                    snapToDock(
+                                        bounds,
+                                        horizontalPosition,
+                                        verticalPosition,
+                                        draggedEdge,
+                                        draggedFraction,
+                                    )
+                                    if (!isDragging) docked = true
+                                }
+                            },
+                            onDragCancel = {
+                                isDragging = false
+                                scope.launch {
+                                    snapToDock(
+                                        bounds,
+                                        horizontalPosition,
+                                        verticalPosition,
+                                        state.edge,
+                                        state.verticalFraction,
+                                    )
+                                    docked = true
+                                }
+                            },
+                        )
+                    },
+        )
 
         DownloadQueuePanel(
             visible = state.expanded,

@@ -21,7 +21,7 @@ object Dimens {
 
     val gooCircleSize: Dp = 36.dp
 
-    val gooTapTargetSize: Dp = 56.dp
+    val gooTapTargetSize: Dp = 80.dp
 
     val gooTransitionRadius: Dp = 4.dp
 
