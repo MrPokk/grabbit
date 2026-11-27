@@ -3,8 +3,8 @@
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
-    <!-- Monochrome Instagram camera icon, original drawing. -->
+    <!-- Instagram monochrome camera icon provided by the user. Tinted via colorScheme (no hardcoded brand color). -->
     <path
         android:fillColor="#000000"
-        android:pathData="M12,2C6.48,2 2,6.48 2,12s4.48,10 10,10s10,-4.48 10,-10S17.52,2 12,2z M12,20C7.58,20 4,16.42 4,12s3.58,-8 8,-8s8,3.58 8,8S16.42,20 12,20z M12,6.5C9.24,6.5 7,8.74 7,12s2.24,5.5 5,5.5s5,-2.24 5,-5.5S14.76,6.5 12,6.5z M16.5,12C16.5,14.2 14.2,16.5 12,16.5S7.5,14.2 7.5,12S9.8,7.5 12,7.5S16.5,9.8 16.5,12z M17.75,7.75A1.25,1.25 0 1,1 16.5,9A1.25,1.25 0 0,1 17.75,7.75z" />
+        android:pathData="M7.75 2h8.5A5.75 5.75 0 0 1 22 7.75v8.5A5.75 5.75 0 0 1 16.25 22h-8.5A5.75 5.75 0 0 1 2 16.25v-8.5A5.75 5.75 0 0 1 7.75 2zm0 1.5A4.25 4.25 0 0 0 3.5 7.75v8.5A4.25 4.25 0 0 0 7.75 20.5h8.5a4.25 4.25 0 0 0 4.25-4.25v-8.5A4.25 4.25 0 0 0 16.25 3.5h-8.5zm9.63 2.12a1.13 1.13 0 1 1 0 2.26 1.13 1.13 0 0 1 0-2.26zM12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 1.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z" />
 </vector>
