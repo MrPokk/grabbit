@@ -88,6 +88,135 @@ class FfmpegRunner
                 execute(encodeArgs, key, durationMs, onProgress)
             }
 
+        /** Merge video + audio by copying streams (no re-encode) into [output]. */
+        suspend fun mergeCopy(
+            video: File,
+            audio: File,
+            output: File,
+            key: String?,
+        ): Result<Unit> =
+            withContext(Dispatchers.IO) {
+                ensureInitialized()
+                if (!isAvailable()) return@withContext Result.failure(IllegalStateException("FFmpeg is not available"))
+                execute(
+                    listOf(
+                        "-y",
+                        "-hide_banner",
+                        "-nostdin",
+                        "-loglevel",
+                        "error",
+                        "-i",
+                        video.absolutePath,
+                        "-i",
+                        audio.absolutePath,
+                        "-map",
+                        "0:v",
+                        "-map",
+                        "1:a",
+                        "-c",
+                        "copy",
+                        output.absolutePath,
+                    ),
+                    key,
+                    0L,
+                    null,
+                )
+            }
+
+        /** Audio-only conversion that can embed cover art (jpg) + metadata, like yt-dlp's audio path. */
+        suspend fun convertAudioEmbed(args: AudioEmbedArgs): Result<Unit> =
+            withContext(Dispatchers.IO) {
+                val input = args.input
+                val output = args.output
+                val target = args.target
+                val bitrate = args.bitrate
+                val coverJpg = args.coverJpg
+                val metadataTitle = args.metadataTitle
+                val metadataArtist = args.metadataArtist
+                val key = args.key
+                ensureInitialized()
+                if (!isAvailable()) return@withContext Result.failure(IllegalStateException("FFmpeg is not available"))
+                val durationMs = durationMs(input)
+                execute(
+                    buildEmbedArgs(input, output, target, bitrate, coverJpg, metadataTitle, metadataArtist),
+                    key,
+                    durationMs,
+                    null,
+                )
+            }
+
+        /** Convert any image (e.g. WebP thumbnail) to a baseline JPEG. */
+        suspend fun convertThumbnailToJpg(
+            input: File,
+            output: File,
+            key: String?,
+        ): Result<Unit> =
+            withContext(Dispatchers.IO) {
+                ensureInitialized()
+                if (!isAvailable()) return@withContext Result.failure(IllegalStateException("FFmpeg is not available"))
+                execute(
+                    listOf(
+                        "-y",
+                        "-hide_banner",
+                        "-nostdin",
+                        "-loglevel",
+                        "error",
+                        "-i",
+                        input.absolutePath,
+                        "-frames:v",
+                        "1",
+                        output.absolutePath,
+                    ),
+                    key,
+                    0L,
+                    null,
+                )
+            }
+
+        private fun buildEmbedArgs(
+            input: File,
+            output: File,
+            target: ConvertFormat,
+            bitrate: Int,
+            coverJpg: File?,
+            metadataTitle: String?,
+            metadataArtist: String?,
+        ): List<String> {
+            val embedCover = coverJpg != null && target != ConvertFormat.OPUS
+            val args =
+                mutableListOf(
+                    "-y",
+                    "-hide_banner",
+                    "-nostdin",
+                    "-loglevel",
+                    "error",
+                    "-i",
+                    input.absolutePath,
+                )
+            if (embedCover) args += listOf("-i", coverJpg.absolutePath)
+            args += "-map"
+            args += "0:a"
+            if (embedCover) args += listOf("-map", "1:v", "-c:v", "mjpeg", "-disposition:v", "attached_pic")
+            args += audioOnlyCodecArgs(target, bitrate)
+            if (target == ConvertFormat.MP3) args += listOf("-id3v2_version", "3")
+            metadataTitle?.takeIf { it.isNotBlank() }?.let { args += listOf("-metadata", "title=$it") }
+            metadataArtist?.takeIf { it.isNotBlank() }?.let { args += listOf("-metadata", "artist=$it") }
+            args += output.absolutePath
+            return args
+        }
+
+        private fun audioOnlyCodecArgs(
+            target: ConvertFormat,
+            bitrate: Int,
+        ): List<String> =
+            when (target) {
+                ConvertFormat.MP3 -> listOf("-c:a", "libmp3lame", "-b:a", "${bitrate}k")
+                ConvertFormat.M4A -> listOf("-c:a", "aac", "-b:a", "${bitrate}k")
+                ConvertFormat.OPUS -> listOf("-c:a", "libopus", "-b:a", "${bitrate}k")
+                ConvertFormat.FLAC -> listOf("-c:a", "flac")
+                else -> listOf("-c:a", "aac", "-b:a", "${bitrate}k")
+            }
+
         private fun audioCodecArgs(
             target: ConvertFormat,
             bitrate: Int,
@@ -293,3 +422,15 @@ class FfmpegRunner
         private fun libDir(): File =
             File(File(context.noBackupFilesDir, "youtubedl-android/packages/ffmpeg"), "usr/lib")
     }
+
+/** Arguments for [FfmpegRunner.convertAudioEmbed]. */
+data class AudioEmbedArgs(
+    val input: File,
+    val output: File,
+    val target: ConvertFormat,
+    val bitrate: Int,
+    val coverJpg: File?,
+    val metadataTitle: String?,
+    val metadataArtist: String?,
+    val key: String?,
+)

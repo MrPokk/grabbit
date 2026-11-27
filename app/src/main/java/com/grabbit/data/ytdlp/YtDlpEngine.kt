@@ -12,6 +12,8 @@ import com.grabbit.core.Links
 import com.grabbit.core.Timing
 import com.grabbit.core.YtDlpArgs
 import com.grabbit.core.suspendRunCatching
+import com.grabbit.data.extract.EngineKind
+import com.grabbit.data.extract.ExtractionEngine
 import com.grabbit.data.settings.SettingsRepository
 import com.yausername.ffmpeg.FFmpeg
 import com.yausername.youtubedl_android.YoutubeDL
@@ -27,7 +29,6 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 import java.io.File
-import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -39,7 +40,7 @@ class InfoException(
     cause: Throwable? = null,
 ) : Exception(error.technical ?: "info failed", cause)
 
-class DownloadException(
+open class DownloadException(
     val error: AppError,
     cause: Throwable? = null,
 ) : Exception(error.technical ?: "download failed", cause)
@@ -67,7 +68,9 @@ class YtDlpEngine
         private val memoryCache: FetchMemoryCache,
         private val cacheDao: FetchCacheDao,
         private val infoCache: InfoCacheStore,
-    ) {
+    ) : ExtractionEngine {
+        override val kind: EngineKind = EngineKind.YTDLP
+
         private val initLock = Mutex()
 
         @Volatile
@@ -90,12 +93,12 @@ class YtDlpEngine
             }
         }
 
-        suspend fun fetch(
+        override suspend fun fetch(
             url: String,
             loadMixAsPlaylist: Boolean,
-            processId: String = UUID.randomUUID().toString(),
-            bypassCache: Boolean = false,
-            trace: FetchTrace? = null,
+            processId: String,
+            bypassCache: Boolean,
+            trace: FetchTrace?,
         ): FetchedMedia {
             val normalizedUrl = Links.normalize(url)
             val cacheKey = "$normalizedUrl|$loadMixAsPlaylist"
@@ -104,7 +107,10 @@ class YtDlpEngine
                 val cacheStartedAt = FetchTrace.startedAt()
                 trace?.record(FetchStage.CACHE_LOOKUP, FetchTrace.sinceMs(cacheStartedAt))
                 val cached = cachedFetch(cacheKey)
-                if (cached != null) return cached
+                if (cached != null) {
+                    trace?.setEngine(kind.logName)
+                    return cached
+                }
             }
 
             val initStartedAt = FetchTrace.startedAt()
@@ -112,6 +118,7 @@ class YtDlpEngine
             trace?.record(FetchStage.INIT, FetchTrace.sinceMs(initStartedAt))
 
             val media = fetchWithFallback(normalizedUrl, loadMixAsPlaylist, processId, trace)
+            trace?.setEngine(kind.logName)
 
             memoryCache.put(cacheKey, media)
             cacheDao.put(FetchCacheEntity(cacheKey, FetchCacheSerializer.toJson(media)))
@@ -140,11 +147,15 @@ class YtDlpEngine
             }
         }
 
-        fun cancelFetch(processId: String) {
+        override fun cancelFetch(processId: String) {
             YoutubeDL.getInstance().destroyProcessById(processId)
         }
 
-        suspend fun download(
+        override fun cancelDownload(taskId: String) {
+            YoutubeDL.getInstance().destroyProcessById(taskId)
+        }
+
+        override suspend fun download(
             spec: DownloadSpec,
             onProgress: (Float, Long, String) -> Unit,
         ): File {

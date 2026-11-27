@@ -4,13 +4,12 @@ import java.util.Locale
 
 private val FILE_NAME_ILLEGAL_CHARS = Regex("[/\\\\:*?\"<>|]")
 
-private const val FILE_NAME_FALLBACK = "download"
-
 private const val COLLISION_SUFFIX = " (%d)"
 
 object FileName {
-    fun sanitize(name: String): String =
-        name.replace(FILE_NAME_ILLEGAL_CHARS, "_").trim().ifBlank { FILE_NAME_FALLBACK }
+    const val FALLBACK_NAME = "download"
+
+    fun sanitize(name: String): String = name.replace(FILE_NAME_ILLEGAL_CHARS, "_").trim().ifBlank { FALLBACK_NAME }
 
     fun unique(
         candidate: String,

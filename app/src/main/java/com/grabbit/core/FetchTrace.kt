@@ -12,6 +12,7 @@ enum class FetchStage(
     PROCESS_START("process"),
     YTDLP_RUN("yt-dlp"),
     JSON_PARSE("parse"),
+    ENGINE("engine"),
     STATE_UPDATE("state"),
     PREVIEW_SHOWN("preview"),
 }
@@ -21,6 +22,9 @@ class FetchTrace(
 ) {
     private val startedAtNanos = System.nanoTime()
     private val stages = LinkedHashMap<FetchStage, Long>()
+
+    @Volatile
+    private var engine: String? = null
 
     fun record(
         stage: FetchStage,
@@ -42,12 +46,19 @@ class FetchTrace(
         }
     }
 
+    /** Record which extraction engine produced the result (for debug details). */
+    fun setEngine(name: String) {
+        engine = name
+        AppLog.d(TAG) { "$label engine=$name" }
+    }
+
     fun totalMs(): Long = nanosToMillis(System.nanoTime() - startedAtNanos)
 
     fun logSummary() {
         AppLog.d(TAG) {
             val detail = stages.entries.joinToString(" ") { (stage, ms) -> "${stage.logName}=${ms}ms" }
-            "$label total=${totalMs()}ms $detail"
+            val enginePart = engine?.let { " engine=$it" } ?: ""
+            "$label total=${totalMs()}ms$enginePart $detail"
         }
     }
 

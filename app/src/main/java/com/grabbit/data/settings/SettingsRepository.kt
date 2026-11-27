@@ -17,6 +17,7 @@ import com.grabbit.core.Languages
 import com.grabbit.core.Limits
 import com.grabbit.core.Storage
 import com.grabbit.data.download.MediaType
+import com.grabbit.data.extract.ExtractionEnginePreference
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -51,6 +52,7 @@ data class AppSettings(
     val autoCheckUpdates: Boolean = true,
     val lastUpdateCheck: Long = 0L,
     val language: String? = null,
+    val extractionEngine: ExtractionEnginePreference = ExtractionEnginePreference.DEFAULT,
 ) {
     val hasCustomFolder: Boolean get() = !customFolderUri.isNullOrBlank()
 }
@@ -82,6 +84,7 @@ class SettingsRepository
             val PROXY = stringPreferencesKey("proxy")
             val FOLDER_URI = stringPreferencesKey("folder_uri")
             val LANGUAGE = stringPreferencesKey("language")
+            val EXTRACTION_ENGINE = stringPreferencesKey("extraction_engine")
             val AUTO_UPDATE = booleanPreferencesKey("auto_update")
             val LAST_UPDATE = longPreferencesKey("last_update")
         }
@@ -125,6 +128,7 @@ class SettingsRepository
                         autoCheckUpdates = prefs[Keys.AUTO_UPDATE] ?: defaults.autoCheckUpdates,
                         lastUpdateCheck = prefs[Keys.LAST_UPDATE] ?: defaults.lastUpdateCheck,
                         language = prefs[Keys.LANGUAGE]?.takeIf { it in Languages.SUPPORTED },
+                        extractionEngine = ExtractionEnginePreference.fromKey(prefs[Keys.EXTRACTION_ENGINE]),
                     )
                 }
 
@@ -185,6 +189,9 @@ class SettingsRepository
             edit {
                 if (tag == null) it.remove(Keys.LANGUAGE) else it[Keys.LANGUAGE] = tag
             }
+
+        suspend fun setExtractionEngine(preference: ExtractionEnginePreference) =
+            edit { it[Keys.EXTRACTION_ENGINE] = preference.key }
 
         suspend fun setLastUpdateCheck(timestamp: Long) = edit { it[Keys.LAST_UPDATE] = timestamp }
 

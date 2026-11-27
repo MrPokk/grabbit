@@ -18,6 +18,7 @@ import androidx.compose.ui.res.stringResource
 import com.grabbit.R
 import com.grabbit.core.Languages
 import com.grabbit.core.UiValues
+import com.grabbit.data.extract.ExtractionEnginePreference
 import com.grabbit.data.settings.AppSettings
 import com.grabbit.data.settings.ThemeMode
 import com.grabbit.ui.theme.Dimens
@@ -108,6 +109,14 @@ internal fun DownloadsSection(
             onClick = onFilename,
         )
         HorizontalDivider()
+        ChipSetting(
+            title = stringResource(R.string.settings_extraction_engine),
+            options = ExtractionEnginePreference.entries,
+            selected = settings.extractionEngine,
+            label = { extractionEngineLabel(it) },
+            onSelect = viewModel::setExtractionEngine,
+        )
+        HorizontalDivider()
         FolderRow(
             settings = settings,
             onPick = onPickFolder,
@@ -115,6 +124,15 @@ internal fun DownloadsSection(
         )
     }
 }
+
+@Composable
+private fun extractionEngineLabel(preference: ExtractionEnginePreference): String =
+    stringResource(
+        when (preference) {
+            ExtractionEnginePreference.AUTO -> R.string.extraction_engine_auto
+            ExtractionEnginePreference.YTDLP_ONLY -> R.string.extraction_engine_ytdlp_only
+        },
+    )
 
 @Composable
 internal fun ExtrasSection(

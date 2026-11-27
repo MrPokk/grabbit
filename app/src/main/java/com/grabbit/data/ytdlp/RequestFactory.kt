@@ -137,21 +137,9 @@ object RequestFactory {
         template: String,
         playlistIndex: Int? = null,
         fileName: String? = null,
-    ): String {
-        // A custom file name (single video only) takes precedence over the template.
-        val base = fileName.takeIf { it?.isNotBlank() == true } ?: template
-        val cleaned =
-            base
-                .replace("/", "-")
-                .replace("\\", "-")
-                .ifBlank { "%(title)s" }
-        val withExt = if (cleaned.contains("%(ext)s")) cleaned else "$cleaned.%(ext)s"
-        return if (playlistIndex != null) {
-            "${playlistIndex.toString().padStart(YtDlpArgs.PLAYLIST_INDEX_PAD, '0')} - $withExt"
-        } else {
-            withExt
-        }
-    }
+    ): String =
+        com.grabbit.core.FilenameTemplate
+            .outputTemplate(template, playlistIndex, fileName)
 
     fun formatSelector(options: DownloadOptions): String {
         if (options.mediaType == MediaType.AUDIO) return "ba/b"
