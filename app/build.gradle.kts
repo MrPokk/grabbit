@@ -230,7 +230,9 @@ detekt {
 }
 
 ktlint {
+    android = true
     version.set(libs.versions.ktlint.get())
+    filter { exclude { it.file.path.contains("build/") } }
 }
 
 tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {

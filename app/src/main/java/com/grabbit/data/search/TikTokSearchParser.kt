@@ -20,12 +20,6 @@ private const val GROUP_TITLE = 1
 private const val GROUP_DESCRIPTION = 2
 private const val GROUP_URL = 3
 
-/**
- * Reads the result records embedded in Brave's HTML.
- *
- * Brave serialises each result as a JavaScript object, so the fields are pulled with a
- * tolerant regex instead of a JSON parser.
- */
 internal object TikTokSearchParser {
     fun parse(
         html: String,
@@ -49,23 +43,25 @@ internal object TikTokSearchParser {
                 )
             if (results.size == limit) return results
         }
-        for (match in VIDEO_URL.findAll(html)) {
-            val url = match.value
-            if (!seen.add(url)) continue
-            results +=
-                MediaSearchResult(
-                    platform = MediaPlatform.TIKTOK,
-                    id = videoId(url),
-                    title = url,
-                    url = url,
-                    thumbnail = null,
-                    durationSeconds = NO_DURATION,
-                    uploader = uploader(url),
-                )
-            if (results.size == limit) break
-        }
+        VIDEO_URL
+            .findAll(html)
+            .map { it.value }
+            .filter(seen::add)
+            .takeWhile { results.size < limit }
+            .forEach { url -> results += videoUrlResult(url) }
         return results
     }
+
+    private fun videoUrlResult(url: String) =
+        MediaSearchResult(
+            platform = MediaPlatform.TIKTOK,
+            id = videoId(url),
+            title = url,
+            url = url,
+            thumbnail = null,
+            durationSeconds = NO_DURATION,
+            uploader = uploader(url),
+        )
 
     private fun videoId(url: String): String = VIDEO_ID.find(url)?.groupValues?.get(1) ?: url
 

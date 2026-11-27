@@ -30,7 +30,6 @@ import javax.inject.Inject
 private const val TAG = "ConvertViewModel"
 private const val CONVERT_KEY = "convert-screen"
 
-/** Owns file picking, FFmpeg conversion and saving the result for the convert screen. */
 @HiltViewModel
 class ConvertViewModel
     @Inject
@@ -39,7 +38,6 @@ class ConvertViewModel
         private val ffmpeg: FfmpegRunner,
         private val saver: MediaSaver,
     ) : ViewModel() {
-        /** A user-picked file copied into the app cache. */
         data class PickedFile(
             val uri: Uri,
             val file: File,
@@ -48,7 +46,6 @@ class ConvertViewModel
             val mimeType: String,
         )
 
-        /** Everything the convert screen needs to render its current state. */
         data class UiState(
             val picked: PickedFile? = null,
             val target: ConvertFormat = ConvertFormat.MP3,
@@ -64,7 +61,6 @@ class ConvertViewModel
         private val _state = MutableStateFlow(UiState())
         val state: StateFlow<UiState> = _state.asStateFlow()
 
-        /** Copies the picked file into the app cache and guesses a conversion target. */
         fun pick(uri: Uri) {
             viewModelScope.launch {
                 val picked =
@@ -100,23 +96,19 @@ class ConvertViewModel
             }
         }
 
-        /** Selects the target format and discards a previous result. */
         fun setTarget(target: ConvertFormat) {
             _state.update { it.copy(target = target, resultUri = null, resultName = null) }
         }
 
-        /** Selects the audio bitrate for the conversion. */
         fun setBitrate(bitrate: Int) {
             _state.update { it.copy(bitrate = bitrate) }
         }
 
-        /** Stops a conversion in progress. */
         fun cancel() {
             ffmpeg.cancel(CONVERT_KEY)
             _state.update { it.copy(running = false) }
         }
 
-        /** Converts the picked file into the selected target and saves it to storage. */
         fun convert() {
             val state = _state.value
             val picked = state.picked ?: return

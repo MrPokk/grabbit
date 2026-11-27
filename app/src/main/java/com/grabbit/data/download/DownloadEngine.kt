@@ -50,15 +50,13 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 private const val TAG = "DownloadEngine"
+private val SPEED_REGEX = Regex("""\d+(?:\.\d+)?\s*[KMGT]?i?B/s""")
 
-/**
- * The download queue. It lives in the application scope (not in the Activity or
- * the Service), so downloads keep running when the UI goes away, and the
- * foreground service only exists to keep the process alive and show progress.
- */
+private fun DownloadTask.idle() = copy(speed = null, etaSeconds = null)
+
 @Singleton
-@Suppress("LongParameterList") // Constructor injection; a parameter holder would only hide the wiring.
 class DownloadEngine
+    @Suppress("LongParameterList") // Hilt constructor injection; a parameter holder would only hide the wiring.
     @Inject
     constructor(
         @ApplicationContext private val context: Context,
@@ -73,8 +71,6 @@ class DownloadEngine
         private val json = Json { ignoreUnknownKeys = true }
 
         private val _tasks = MutableStateFlow<List<DownloadTask>>(emptyList())
-
-        /** Current queue contents. */
         val tasks: StateFlow<List<DownloadTask>> = _tasks.asStateFlow()
 
         private val jobs = ConcurrentHashMap<String, Job>()
@@ -84,59 +80,56 @@ class DownloadEngine
         @Volatile private var concurrentLimit = Defaults.CONCURRENT_DOWNLOADS
 
         init {
-            // Cache the limit so pump() never has to suspend on DataStore.
             scope.launch { settings.settings.collect { concurrentLimit = it.concurrentDownloads } }
-            scope.launch {
-                pumpSignal.consumeAsFlow().collect { safePump() }
-            }
-            safePump()
+            scope.launch { pumpSignal.consumeAsFlow().collect { safePump() } }
+            pumpSignal.trySend(Unit)
         }
 
-        /** Adds requests to the queue and returns their ids. */
         fun enqueue(requests: List<DownloadRequest>): List<String> {
             AppLog.d(TAG) { "enqueue size=${requests.size}" }
-            if (requests.isEmpty()) return emptyList()
-            val created =
-                requests.map { request ->
-                    DownloadTask(id = UUID.randomUUID().toString(), request = request)
-                }
+            val created = requests.map { DownloadTask(id = UUID.randomUUID().toString(), request = it) }
+            if (created.isEmpty()) return emptyList()
             _tasks.update { it + created }
             pumpSignal.trySend(Unit)
-            safePump()
             return created.map { it.id }
         }
 
-        /** Pauses a task and kills its native process. */
         fun pause(id: String) {
-            val task = find(id) ?: return
-            if (!task.status.isActive) return
-            update(id) { it.copy(status = TaskStatus.PAUSED, speed = null, etaSeconds = null) }
-            try {
-                YoutubeDL.getInstance().destroyProcessById(id)
-            } catch (e: SecurityException) {
-                AppLog.e(TAG, "could not destroy the download process", e)
-            }
-            ffmpeg.cancel(id)
+            if (find(id)?.status?.isActive != true) return
+            halt(id, TaskStatus.PAUSED)
         }
 
-        /** Re-queues a paused or failed task. */
         fun resume(id: String) {
             val task = find(id) ?: return
             if (task.status.isActive || task.status == TaskStatus.COMPLETED) return
-            update(
-                id,
-            ) { it.copy(status = TaskStatus.QUEUED, progress = 0f, error = null, speed = null, etaSeconds = null) }
+            update(id) { it.idle().copy(status = TaskStatus.QUEUED, progress = 0f, error = null) }
             pumpSignal.trySend(Unit)
         }
 
-        /** Cancels a task and kills its native process. */
         fun cancel(id: String) {
             val task = find(id) ?: return
-            if (task.status.isFinished) {
-                remove(id)
-                return
-            }
-            update(id) { it.copy(status = TaskStatus.CANCELLED, speed = null, etaSeconds = null) }
+            if (task.status.isFinished) remove(id) else halt(id, TaskStatus.CANCELLED)
+        }
+
+        fun remove(id: String) {
+            if (find(id)?.status?.isFinished != true) return
+            _tasks.update { list -> list.filterNot { it.id == id } }
+        }
+
+        fun clearFinished() = _tasks.update { list -> list.filterNot { it.status.isFinished } }
+
+        private fun find(id: String) = _tasks.value.firstOrNull { it.id == id }
+
+        private fun update(
+            id: String,
+            block: (DownloadTask) -> DownloadTask,
+        ) = _tasks.update { list -> list.map { if (it.id == id) block(it) else it } }
+
+        private fun halt(
+            id: String,
+            status: TaskStatus,
+        ) {
+            update(id) { it.idle().copy(status = status) }
             try {
                 YoutubeDL.getInstance().destroyProcessById(id)
             } catch (e: SecurityException) {
@@ -145,21 +138,7 @@ class DownloadEngine
             ffmpeg.cancel(id)
         }
 
-        /** Removes a finished task from the displayed queue. */
-        fun remove(id: String) {
-            val task = find(id) ?: return
-            if (!task.status.isFinished) return
-            _tasks.update { list -> list.filterNot { it.id == id } }
-        }
-
-        /** Removes every finished task from the displayed queue. */
-        fun clearFinished() {
-            _tasks.update { list -> list.filterNot { it.status.isFinished } }
-        }
-
-        /** A single failed pump must not kill the queue consumer forever. */
         private fun safePump() {
-            AppLog.d(TAG) { "safePump enter" }
             try {
                 pump()
             } catch (e: IllegalStateException) {
@@ -167,200 +146,170 @@ class DownloadEngine
             }
         }
 
-        private fun find(id: String): DownloadTask? = _tasks.value.firstOrNull { it.id == id }
-
-        private fun update(
-            id: String,
-            block: (DownloadTask) -> DownloadTask,
-        ) {
-            _tasks.update { list ->
-                list.map { if (it.id == id) block(it) else it }
-            }
-        }
-
         @Synchronized
         private fun pump() {
-            val limit =
-                concurrentLimit.coerceIn(
-                    Limits.MIN_CONCURRENT_DOWNLOADS,
-                    Limits.MAX_CONCURRENT_DOWNLOADS,
-                )
+            val limit = concurrentLimit.coerceIn(Limits.MIN_CONCURRENT_DOWNLOADS, Limits.MAX_CONCURRENT_DOWNLOADS)
             val snapshot = _tasks.value
-            // QUEUED counts as "active" for the UI, but it must not consume a
-            // worker slot — otherwise the queue can never start.
             val active = snapshot.count { it.status != TaskStatus.QUEUED && it.status.isActive }
-            var freeSlots = limit - active
-            if (freeSlots <= 0) return
             val queued = snapshot.filter { it.status == TaskStatus.QUEUED }
             AppLog.d(TAG) { "pump: limit=$limit active=$active queued=${queued.size}" }
-            for (task in queued) {
-                if (freeSlots <= 0) break
-                if (find(task.id)?.status != TaskStatus.QUEUED) continue
-                start(task.id)
-                freeSlots--
-            }
+            queued
+                .filter { find(it.id)?.status == TaskStatus.QUEUED }
+                .take(limit - active)
+                .forEach { start(it.id) }
         }
 
         private fun start(id: String) {
             update(id) { it.copy(status = TaskStatus.PREPARING, progress = 0f, error = null) }
-            val job =
+            jobs[id] =
                 scope.launch {
                     try {
                         runTask(id)
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: DownloadException) {
-                        handleTaskFailure(id, e, e.error)
+                        onFailure(id, e, e.error)
                     } catch (e: InfoException) {
-                        handleTaskFailure(id, e, e.error)
-                    } catch (e: DownloadCancelledException) {
-                        handleTaskFailure(id, e)
-                    } catch (e: IOException) {
-                        handleTaskFailure(id, e)
-                    } catch (e: SecurityException) {
-                        handleTaskFailure(id, e)
-                    } catch (e: SQLiteException) {
-                        handleTaskFailure(id, e)
-                    } catch (e: SerializationException) {
-                        handleTaskFailure(id, e)
-                    } catch (e: IllegalStateException) {
-                        handleTaskFailure(id, e)
+                        onFailure(id, e, e.error)
+                    } catch (
+                        e: Exception,
+                    ) {
+                        if (e.isExpected()) onFailure(id, e) else throw e
                     } finally {
                         jobs.remove(id)
+                        lastProgressAt.remove(id)
                         pumpSignal.trySend(Unit)
                     }
                 }
-            jobs[id] = job
+        }
+
+        private fun Exception.isExpected() =
+            this is DownloadCancelledException ||
+                this is IOException ||
+                this is SecurityException ||
+                this is SQLiteException ||
+                this is SerializationException ||
+                this is IllegalStateException
+
+        private fun onFailure(
+            id: String,
+            e: Exception,
+            error: AppError = ErrorMapper.fromThrowable(e),
+        ) {
+            AppLog.e(TAG, "download task $id failed", e)
+            val status = find(id)?.status ?: return
+            if (status == TaskStatus.PAUSED || status == TaskStatus.CANCELLED) return
+            update(id) { it.idle().copy(status = TaskStatus.FAILED, error = error) }
         }
 
         private suspend fun runTask(id: String) {
             val task = find(id) ?: return
             val options = task.options
             val workDir = File(context.cacheDir, "downloads/$id").apply { mkdirs() }
-            val marker = File(workDir, "output.path")
-            marker.delete()
+            val marker = File(workDir, "output.path").apply { delete() }
 
             try {
-                val appSettings = settings.current()
-                val infoJsonPath =
-                    task.request.infoJsonPath?.takeIf {
-                        infoCache.isFresh(it, task.request.infoFetchedAtMs)
-                    }
-                val spec =
-                    DownloadSpec(
-                        taskId = id,
-                        url = task.request.url,
-                        playlistIndex = task.request.playlistIndex,
-                        options = options,
-                        template = appSettings.filenameTemplate,
-                        workDir = workDir,
-                        cookiesPath = appSettings.cookiesPath?.takeIf { File(it).exists() },
-                        proxy = appSettings.proxy.takeIf { it.isNotBlank() },
-                        markerFile = marker,
-                        saveFolderUri =
-                            options.saveFolderUri.takeIf { it?.isNotBlank() == true }
-                                ?: appSettings.customFolderUri,
-                        fileName = options.fileName,
-                        infoJsonPath = infoJsonPath,
-                    )
+                val spec = buildSpec(task, workDir, marker)
 
                 update(id) { it.copy(status = TaskStatus.DOWNLOADING) }
                 val output = downloadWithInfoRetry(id, spec)
 
-                update(id) { it.copy(status = TaskStatus.SAVING, progress = 1f, speed = null, etaSeconds = null) }
-                val mimeType = MimeTypes.forExt(output.extension)
-                val displayName =
-                    options.fileName
-                        .takeIf { it?.isNotBlank() == true }
-                        ?.let { "$it.${output.extension}" }
-                        ?: output.name
+                update(id) { it.idle().copy(status = TaskStatus.SAVING, progress = 1f) }
                 val saved =
                     saver.save(
                         source = output,
                         mediaType = options.mediaType,
-                        mimeType = mimeType,
-                        displayName = displayName,
+                        mimeType = MimeTypes.forExt(output.extension),
+                        displayName =
+                            options.fileName
+                                ?.takeIf { it.isNotBlank() }
+                                ?.let { "$it.${output.extension}" }
+                                ?: output.name,
                         customFolder = spec.saveFolderUri?.toUri(),
                     )
                 output.delete()
 
-                historyDao.insert(
-                    HistoryEntity(
-                        url = task.request.url,
-                        title = task.title,
-                        uploader = task.uploader,
-                        thumbnail = task.thumbnail,
-                        uri = saved.uri.toString(),
-                        fileName = saved.displayName,
-                        mimeType = saved.mimeType,
-                        mediaType = options.mediaType.name,
-                        formatLabel = options.formatLabel,
-                        sizeBytes = saved.sizeBytes,
-                        durationSeconds = task.request.durationSeconds,
-                        createdAt = System.currentTimeMillis(),
-                        sourceSite = task.request.site,
-                        optionsJson = json.encodeToString(options),
-                    ),
-                )
-
+                historyDao.insert(task.toHistory(saved))
                 update(id) {
-                    it.copy(
+                    it.idle().copy(
                         status = TaskStatus.COMPLETED,
                         progress = 1f,
-                        speed = null,
-                        etaSeconds = null,
                         savedUri = saved.uri.toString(),
                         fileName = saved.displayName,
                         sizeBytes = saved.sizeBytes,
                     )
                 }
             } finally {
-                val status = find(id)?.status
-                if (status != TaskStatus.PAUSED) {
-                    workDir.deleteRecursively()
-                }
+                if (find(id)?.status != TaskStatus.PAUSED) workDir.deleteRecursively()
                 marker.delete()
             }
         }
 
-        /**
-         * Runs the download, reusing the metadata JSON. If the cached format URLs
-         * expired, re-extracts once and retries; other failures are reported as-is.
-         */
+        private suspend fun buildSpec(
+            task: DownloadTask,
+            workDir: File,
+            marker: File,
+        ): DownloadSpec {
+            val app = settings.current()
+            val options = task.options
+            return DownloadSpec(
+                taskId = task.id,
+                url = task.request.url,
+                playlistIndex = task.request.playlistIndex,
+                options = options,
+                template = app.filenameTemplate,
+                workDir = workDir,
+                cookiesPath = app.cookiesPath?.takeIf { File(it).exists() },
+                proxy = app.proxy.takeIf { it.isNotBlank() },
+                markerFile = marker,
+                saveFolderUri =
+                    options.saveFolderUri?.takeIf {
+                        it.isNotBlank()
+                    } ?: app.customFolderUri,
+                fileName = options.fileName,
+                infoJsonPath =
+                    task.request.infoJsonPath?.takeIf {
+                        infoCache.isFresh(it, task.request.infoFetchedAtMs)
+                    },
+            )
+        }
+
+        private fun DownloadTask.toHistory(saved: MediaSaver.SavedFile) =
+            HistoryEntity(
+                url = request.url,
+                title = title,
+                uploader = uploader,
+                thumbnail = thumbnail,
+                uri = saved.uri.toString(),
+                fileName = saved.displayName,
+                mimeType = saved.mimeType,
+                mediaType = options.mediaType.name,
+                formatLabel = options.formatLabel,
+                sizeBytes = saved.sizeBytes,
+                durationSeconds = request.durationSeconds,
+                createdAt = System.currentTimeMillis(),
+                sourceSite = request.site,
+                optionsJson = json.encodeToString(options),
+            )
+
         private suspend fun downloadWithInfoRetry(
             id: String,
             spec: DownloadSpec,
         ): File {
-            try {
-                return ytDlp.download(spec) { progress, eta, line ->
-                    onProgress(id, progress, eta, line)
-                }
+            val progress = { p: Float, eta: Long, line: String -> onProgress(id, p, eta, line) }
+            return try {
+                ytDlp.download(spec, progress)
             } catch (e: DownloadException) {
-                val staleInfo = spec.infoJsonPath
-                if (staleInfo == null || !ErrorSignals.isExpiredFormatUrl(e.error.technical)) throw e
+                val stale = spec.infoJsonPath
+                if (stale == null || !ErrorSignals.isExpiredFormatUrl(e.error.technical)) throw e
                 AppLog.d(TAG) { "cached info expired, re-fetching once: ${spec.url}" }
-                infoCache.discard(staleInfo)
-                val refreshed = ytDlp.fetch(spec.url, loadMixAsPlaylist = false, bypassCache = true)
-                val single = refreshed as? FetchedMedia.Single
-                val freshInfo =
-                    single?.infoJsonPath?.takeIf {
-                        infoCache.isFresh(it, single.infoFetchedAtMs)
-                    }
-                return ytDlp.download(spec.copy(infoJsonPath = freshInfo)) { progress, eta, line ->
-                    onProgress(id, progress, eta, line)
-                }
+                infoCache.discard(stale)
+                val fresh =
+                    (ytDlp.fetch(spec.url, loadMixAsPlaylist = false, bypassCache = true) as? FetchedMedia.Single)
+                        ?.takeIf { infoCache.isFresh(it.infoJsonPath, it.infoFetchedAtMs) }
+                        ?.infoJsonPath
+                ytDlp.download(spec.copy(infoJsonPath = fresh), progress)
             }
-        }
-
-        private fun handleTaskFailure(
-            id: String,
-            e: Exception,
-            error: AppError = ErrorMapper.fromThrowable(e),
-        ) {
-            AppLog.e(TAG, "download task $id failed", e)
-            val current = find(id) ?: return
-            if (current.status == TaskStatus.PAUSED || current.status == TaskStatus.CANCELLED) return
-            fail(id, error)
         }
 
         private fun onProgress(
@@ -370,47 +319,21 @@ class DownloadEngine
             line: String,
         ) {
             val now = SystemClock.elapsedRealtime()
-            val previous = lastProgressAt[id] ?: 0L
-            val fraction =
-                if (progress >= 0f) {
-                    (progress / Formatting.PERCENT_SCALE_F).coerceIn(0f, 1f)
-                } else {
-                    null
-                }
-            if (fraction != null &&
-                now - previous < Timing.PROGRESS_THROTTLE.inWholeMilliseconds &&
-                fraction < 1f
-            ) {
-                return
-            }
+            val fraction = progress.takeIf { it >= 0f }?.let { (it / Formatting.PERCENT_SCALE_F).coerceIn(0f, 1f) }
+            val throttled =
+                fraction != null &&
+                    fraction < 1f &&
+                    now - (lastProgressAt[id] ?: 0L) < Timing.PROGRESS_THROTTLE.inWholeMilliseconds
+            if (throttled) return
             lastProgressAt[id] = now
-
-            val speed = speedRegex.find(line)?.value
-            update(id) { task ->
-                task.copy(
-                    status = TaskStatus.DOWNLOADING,
-                    progress = fraction ?: task.progress,
-                    speed = speed ?: task.speed,
-                    etaSeconds = etaSeconds.takeIf { it > 0 } ?: task.etaSeconds,
-                )
-            }
-        }
-
-        private fun fail(
-            id: String,
-            error: AppError,
-        ) {
+            val speed = SPEED_REGEX.find(line)?.value
             update(id) {
                 it.copy(
-                    status = TaskStatus.FAILED,
-                    error = error,
-                    speed = null,
-                    etaSeconds = null,
+                    status = TaskStatus.DOWNLOADING,
+                    progress = fraction ?: it.progress,
+                    speed = speed ?: it.speed,
+                    etaSeconds = etaSeconds.takeIf { eta -> eta > 0 } ?: it.etaSeconds,
                 )
             }
-        }
-
-        private companion object {
-            val speedRegex = Regex("""\d+(?:\.\d+)?\s*[KMGT]?i?B/s""")
         }
     }

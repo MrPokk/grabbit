@@ -68,7 +68,7 @@ class RequestFactoryTest {
         val command = request.buildCommand()
         assertTrue(command.contains("-x"))
         assertTrue(command.contains("mp3"))
-        // 320 maps to yt-dlp's "best" quality, matching the working manual command.
+
         assertTrue(command.contains("0"))
         assertEquals(false, command.contains("320K"))
         assertTrue(command.contains("--no-playlist"))

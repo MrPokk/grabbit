@@ -10,16 +10,10 @@ sealed interface FetchedMedia {
     val thumbnail: String?
     val sourceUrl: String
 
-    /** A single video or audio item. */
     @Serializable
     data class Single(
         val info: MediaInfo,
-        /**
-         * Raw `--dump-single-json` output cached for the download, so yt-dlp does not
-         * have to extract the same video twice. `null` when no file was kept.
-         */
         val infoJsonPath: String? = null,
-        /** Wall-clock time when [infoJsonPath] was written; format URLs expire after a while. */
         val infoFetchedAtMs: Long = 0L,
     ) : FetchedMedia {
         override val title: String get() = info.title
@@ -28,7 +22,6 @@ sealed interface FetchedMedia {
         override val sourceUrl: String get() = info.url
     }
 
-    /** A playlist, channel or mix; [truncated] means yt-dlp reported more items than returned. */
     @Serializable
     data class Collection(
         override val title: String,
@@ -40,7 +33,6 @@ sealed interface FetchedMedia {
     ) : FetchedMedia
 }
 
-/** Metadata of one media item and the formats yt-dlp reported for it. */
 @Serializable
 data class MediaInfo(
     val id: String,
@@ -52,7 +44,6 @@ data class MediaInfo(
     val site: String?,
     val formats: List<FormatInfo>,
 ) {
-    /** Distinct video heights, highest first. */
     val videoHeights: List<Int>
         get() =
             formats
@@ -66,7 +57,6 @@ data class MediaInfo(
     val maxHeight: Int get() = videoHeights.maxOrNull() ?: 0
 }
 
-/** One downloadable stream from yt-dlp's `formats` list. */
 @Serializable
 data class FormatInfo(
     val id: String,
@@ -84,7 +74,6 @@ data class FormatInfo(
     val isAudio: Boolean get() = !acodec.isNullOrBlank() && acodec != "none" && !isVideo
 }
 
-/** One entry of a playlist or mix. */
 @Serializable
 data class PlaylistItem(
     val index: Int,
@@ -95,7 +84,6 @@ data class PlaylistItem(
     val thumbnail: String?,
 )
 
-/** Heights offered for a download: the media's own heights, or the shared fallback list. */
 fun FetchedMedia.availableHeights(): List<Int> =
     (this as? FetchedMedia.Single)
         ?.info

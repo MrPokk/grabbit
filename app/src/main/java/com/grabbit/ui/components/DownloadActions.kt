@@ -13,10 +13,10 @@ import android.provider.DocumentsContract
 import android.provider.MediaStore
 import android.widget.Toast
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.FolderOpen
-import androidx.compose.material.icons.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.DropdownMenu
@@ -38,31 +38,32 @@ private const val EXTERNAL_STORAGE_AUTHORITY = "com.android.externalstorage.docu
 
 private const val PRIMARY_VOLUME = "primary"
 
-// Every menu entry is an independent callback; grouping them into a holder would obscure the wiring.
-@Suppress("LongParameterList")
+data class DownloadActionsCallbacks(
+    val onOpen: () -> Unit,
+    val onShowInFolder: () -> Unit,
+    val onShare: () -> Unit,
+    val onRedownload: () -> Unit,
+    val onRemove: () -> Unit,
+    val onDelete: () -> Unit,
+)
+
 @Composable
 fun DownloadActionsMenu(
     expanded: Boolean,
     onDismiss: () -> Unit,
-    onOpen: () -> Unit,
-    onShowInFolder: () -> Unit,
-    onShare: () -> Unit,
-    onRedownload: () -> Unit,
-    onRemove: () -> Unit,
-    onDelete: () -> Unit,
+    callbacks: DownloadActionsCallbacks,
 ) {
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismiss,
         shape = MaterialTheme.shapes.large,
     ) {
-        // Работа с файлом.
         DropdownMenuItem(
             text = { Text(stringResource(R.string.action_open)) },
-            leadingIcon = { Icon(Icons.Rounded.OpenInNew, contentDescription = null) },
+            leadingIcon = { Icon(Icons.AutoMirrored.Rounded.OpenInNew, contentDescription = null) },
             onClick = {
                 onDismiss()
-                onOpen()
+                callbacks.onOpen()
             },
         )
         DropdownMenuItem(
@@ -70,7 +71,7 @@ fun DownloadActionsMenu(
             leadingIcon = { Icon(Icons.Rounded.FolderOpen, contentDescription = null) },
             onClick = {
                 onDismiss()
-                onShowInFolder()
+                callbacks.onShowInFolder()
             },
         )
         DropdownMenuItem(
@@ -78,27 +79,25 @@ fun DownloadActionsMenu(
             leadingIcon = { Icon(Icons.Rounded.Share, contentDescription = null) },
             onClick = {
                 onDismiss()
-                onShare()
+                callbacks.onShare()
             },
         )
         HorizontalDivider()
-        // Управление задачей.
         DropdownMenuItem(
             text = { Text(stringResource(R.string.action_redownload)) },
             leadingIcon = { Icon(Icons.Rounded.Refresh, contentDescription = null) },
             onClick = {
                 onDismiss()
-                onRedownload()
+                callbacks.onRedownload()
             },
         )
         HorizontalDivider()
-        // Удаление.
         DropdownMenuItem(
             text = { Text(stringResource(R.string.action_remove_from_list)) },
             leadingIcon = { Icon(Icons.Rounded.Close, contentDescription = null) },
             onClick = {
                 onDismiss()
-                onRemove()
+                callbacks.onRemove()
             },
         )
         DropdownMenuItem(
@@ -106,7 +105,7 @@ fun DownloadActionsMenu(
             leadingIcon = { Icon(Icons.Rounded.Delete, contentDescription = null) },
             onClick = {
                 onDismiss()
-                onDelete()
+                callbacks.onDelete()
             },
         )
     }
@@ -135,10 +134,10 @@ fun showSavedFileInFolder(
     uri: String,
 ) {
     val fileUri = uri.toUri()
-    // Prefer showing the parent folder so the user sees the file next to its siblings.
+
     val folderUri = savedFileFolderUri(context, fileUri)
     if (folderUri != null && openFolderPickerAt(context, folderUri)) return
-    // Fall back to opening the file itself when no app can show its folder.
+
     if (openUriViaChooser(context, fileUri, null, R.string.action_open)) {
         return
     }
@@ -169,7 +168,6 @@ private fun openFolderPickerAt(
     }
 }
 
-/** Opens [uri] with ACTION_VIEW in a chooser so the user picks the app. Returns true on success. */
 private fun openUriViaChooser(
     context: Context,
     uri: Uri,
@@ -223,7 +221,6 @@ private fun savedFileFolderUri(
     }
 }
 
-@Suppress("DEPRECATION")
 private fun folderUriFromMediaStore(
     context: Context,
     uri: Uri,
@@ -254,7 +251,6 @@ private fun folderUriFromDocument(uri: Uri): Uri? {
     return DocumentsContract.buildDocumentUri(EXTERNAL_STORAGE_AUTHORITY, parentDocumentId)
 }
 
-@Suppress("DEPRECATION")
 private fun folderUriForAbsolutePath(path: String): Uri? {
     val parent = File(path).parent ?: return null
     val root = Environment.getExternalStorageDirectory().absolutePath.trimEnd('/')

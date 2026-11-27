@@ -36,7 +36,6 @@ import com.grabbit.core.MediaPlatform
 import com.grabbit.ui.theme.Dimens
 import com.grabbit.ui.theme.Motion
 
-/** Brand assets and labels of the selectable search platforms. */
 @get:StringRes
 internal val MediaPlatform.labelRes: Int
     get() =
@@ -55,13 +54,10 @@ internal val MediaPlatform.iconRes: Int
             MediaPlatform.INSTAGRAM -> R.drawable.ic_platform_instagram
         }
 
-/** Size of a platform selection chip. */
 private val PlatformChipSize: Dp = 40.dp
 
-/** Size of the monochrome icon inside a platform chip. */
 private val PlatformIconSize: Dp = 24.dp
 
-/** Icons above the input; the active platform leaves this row for the input's trailing slot. */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 internal fun PlatformSelectorRow(
@@ -102,7 +98,6 @@ internal fun PlatformSelectorRow(
     }
 }
 
-/** Active platform shown at the trailing edge of the input; tapping it deselects the platform. */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 internal fun PlatformTrailingIcons(
@@ -148,7 +143,6 @@ private fun PlatformChip(
     contentDescription: String,
     onClick: () -> Unit,
 ) {
-    /** Each chip animates its own state from its own [isSelected], independent of the indicator. */
     val selected by animateFloatAsState(
         targetValue = if (isSelected) 1f else 0f,
         animationSpec = Motion.PlatformChangeSpec,
@@ -209,7 +203,6 @@ private fun PlatformIcon(
     contentDescription: String,
     modifier: Modifier = Modifier,
 ) {
-    /** Monochrome vector drawable; tinted via tintColor (inactive: onSurfaceVariant, active: primary). */
     val iconModifier =
         modifier
             .graphicsLayer {

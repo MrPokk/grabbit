@@ -14,7 +14,6 @@ import com.grabbit.core.AppLog
 import com.grabbit.core.Cache
 import kotlinx.serialization.json.Json
 
-/** In-memory LRU cache for fetch results with a short TTL. */
 class FetchMemoryCache(
     private val maxSize: Int = Cache.FETCH_MEMORY_ENTRIES,
     private val ttlMs: Long = Cache.FETCH_TTL.inWholeMilliseconds,
@@ -64,7 +63,6 @@ class FetchMemoryCache(
     }
 }
 
-/** Room entity for persistent fetch cache. */
 @Entity(tableName = "fetch_cache")
 data class FetchCacheEntity(
     @PrimaryKey val normalizedUrl: String,
@@ -115,7 +113,6 @@ abstract class FetchCacheDatabase : RoomDatabase() {
     }
 }
 
-/** Serialization helper for FetchedMedia. */
 object FetchCacheSerializer {
     private val json =
         Json {

@@ -6,10 +6,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
-/**
- * Material 3 type scale. Only the roles the app actually uses are tweaked, so
- * everything else keeps the platform defaults (and the user's font scale).
- */
 val GrabbitTypography =
     Typography(
         headlineMedium =

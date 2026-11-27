@@ -49,6 +49,7 @@ import com.grabbit.core.Formatters
 import com.grabbit.core.UiValues
 import com.grabbit.data.download.DownloadTask
 import com.grabbit.data.download.TaskStatus
+import com.grabbit.ui.components.DownloadActionsCallbacks
 import com.grabbit.ui.components.DownloadActionsMenu
 import com.grabbit.ui.components.Thumbnail
 import com.grabbit.ui.theme.Dimens
@@ -70,7 +71,6 @@ internal data class TaskCallbacks(
     val onDelete: () -> Unit,
 )
 
-@Suppress("LongMethod") // TaskCard is inherently one screen section; splitting the status branches harms clarity.
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun TaskCard(
@@ -81,7 +81,6 @@ internal fun TaskCard(
     var menuOpen by remember { mutableStateOf(false) }
     val canOpen = task.status == TaskStatus.COMPLETED && task.savedUri != null
 
-    // Noticeable but short scale pop when a task reaches a terminal state (completed or failed).
     var pulse by remember { mutableStateOf(false) }
     var prevStatus by remember { mutableStateOf<TaskStatus?>(null) }
     LaunchedEffect(task.status) {
@@ -192,59 +191,10 @@ internal fun TaskCard(
                 }
 
                 if (task.status.isActive) {
-                    Spacer(Modifier.height(Dimens.xs))
-                    AnimatedTaskProgress(
-                        progress = task.progress,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Spacer(Modifier.height(Dimens.xxs))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(
-                            text =
-                                stringResource(
-                                    R.string.queue_progress_percent,
-                                    Formatters.percent(task.progress),
-                                ),
-                            style = MaterialTheme.typography.labelMedium,
-                        )
-                        task.speed?.let { speed ->
-                            Text(text = speed, style = MaterialTheme.typography.labelMedium)
-                        }
-                        task.etaSeconds?.let { eta ->
-                            Text(
-                                text = stringResource(R.string.eta_label, Formatters.duration(eta)),
-                                style = MaterialTheme.typography.labelMedium,
-                            )
-                        }
-                    }
+                    TaskProgressRow(task = task)
                 }
 
-                if (task.status == TaskStatus.COMPLETED) {
-                    task.fileName?.let { name ->
-                        Spacer(Modifier.height(Dimens.xxs))
-                        Text(
-                            text =
-                                stringResource(
-                                    R.string.queue_file_info,
-                                    name,
-                                    Formatters.bytes(resources, task.sizeBytes),
-                                ),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
-
-                if (task.status == TaskStatus.FAILED && task.error != null) {
-                    Spacer(Modifier.height(Dimens.xxs))
-                    Text(
-                        text = stringResource(task.error.messageRes),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                    )
-                }
+                TaskCardFooter(task = task)
             }
         }
         Box(
@@ -257,12 +207,75 @@ internal fun TaskCard(
             DownloadActionsMenu(
                 expanded = menuOpen && canOpen,
                 onDismiss = { menuOpen = false },
-                onOpen = callbacks.onOpen,
-                onShowInFolder = callbacks.onShowInFolder,
-                onShare = callbacks.onShare,
-                onRedownload = callbacks.onRedownload,
-                onRemove = callbacks.onRemove,
-                onDelete = callbacks.onDelete,
+                callbacks =
+                    DownloadActionsCallbacks(
+                        onOpen = callbacks.onOpen,
+                        onShowInFolder = callbacks.onShowInFolder,
+                        onShare = callbacks.onShare,
+                        onRedownload = callbacks.onRedownload,
+                        onRemove = callbacks.onRemove,
+                        onDelete = callbacks.onDelete,
+                    ),
+            )
+        }
+    }
+}
+
+@Composable
+private fun TaskCardFooter(task: DownloadTask) {
+    val resources = LocalResources.current
+    if (task.status == TaskStatus.COMPLETED) {
+        task.fileName?.let { name ->
+            Spacer(Modifier.height(Dimens.xxs))
+            Text(
+                text =
+                    stringResource(
+                        R.string.queue_file_info,
+                        name,
+                        Formatters.bytes(resources, task.sizeBytes),
+                    ),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+
+    if (task.status == TaskStatus.FAILED && task.error != null) {
+        Spacer(Modifier.height(Dimens.xxs))
+        Text(
+            text = stringResource(task.error.messageRes),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onErrorContainer,
+        )
+    }
+}
+
+@Composable
+private fun TaskProgressRow(task: DownloadTask) {
+    Spacer(Modifier.height(Dimens.xs))
+    AnimatedTaskProgress(
+        progress = task.progress,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    Spacer(Modifier.height(Dimens.xxs))
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(
+            text =
+                stringResource(
+                    R.string.queue_progress_percent,
+                    Formatters.percent(task.progress),
+                ),
+            style = MaterialTheme.typography.labelMedium,
+        )
+        task.speed?.let { speed ->
+            Text(text = speed, style = MaterialTheme.typography.labelMedium)
+        }
+        task.etaSeconds?.let { eta ->
+            Text(
+                text = stringResource(R.string.eta_label, Formatters.duration(eta)),
+                style = MaterialTheme.typography.labelMedium,
             )
         }
     }
@@ -340,8 +353,6 @@ internal fun statusText(
         TaskStatus.FAILED -> stringResource(R.string.status_failed)
     }
 
-/** Progress bar that interpolates between values instead of jumping. Only this composable
- * recomposes while the animation runs; the parent card stays stable. */
 @Composable
 private fun AnimatedTaskProgress(
     progress: Float,

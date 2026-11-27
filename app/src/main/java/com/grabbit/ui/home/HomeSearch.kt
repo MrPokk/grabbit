@@ -33,7 +33,6 @@ import com.grabbit.ui.components.ErrorCard
 import com.grabbit.ui.components.Thumbnail
 import com.grabbit.ui.theme.Dimens
 
-/** Search status, prompt and results for the selected platform. */
 internal fun LazyListScope.homeSearchContent(
     state: HomeViewModel.UiState,
     onOpen: (MediaSearchResult) -> Unit,

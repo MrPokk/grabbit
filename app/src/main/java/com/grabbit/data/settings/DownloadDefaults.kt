@@ -5,7 +5,6 @@ import com.grabbit.core.UiValues
 import com.grabbit.data.download.DownloadOptions
 import com.grabbit.data.download.MediaType
 
-/** Builds the options a download would get from the current settings and available heights. */
 fun AppSettings.toDownloadOptions(
     mediaType: MediaType,
     availableHeights: List<Int>,

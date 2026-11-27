@@ -6,7 +6,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 
-/** Shares a flow in the UI scope and keeps it alive briefly after unsubscribe. */
 fun <T> Flow<T>.stateInUi(
     scope: CoroutineScope,
     initial: T,

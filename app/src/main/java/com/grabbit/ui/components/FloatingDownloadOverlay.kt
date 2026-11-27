@@ -3,6 +3,7 @@ package com.grabbit.ui.components
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -42,9 +43,6 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
-// Overlay orchestration reads top-to-bottom; splitting the drag/dock state into child composables
-// would need a dozen callbacks and hide the single source of truth.
-@Suppress("LongMethod")
 @Composable
 fun FloatingDownloadOverlay(
     summary: QueueSummary,
@@ -56,39 +54,25 @@ fun FloatingDownloadOverlay(
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
-    // true only when the widget sits still at its edge (after layout and after the snap animation finished)
+
     var docked by remember { mutableStateOf(false) }
     var isDragging by remember { mutableStateOf(false) }
     val horizontalPosition = remember { Animatable(0f) }
     val verticalPosition = remember { Animatable(0f) }
     val reveal = remember { Animatable(0f) }
+    // true only when the widget sits still at its edge (after layout and after the snap animation finished)
     val revealTarget = docked && !state.expanded && !isDragging
+    val revealSpec: SpringSpec<Float> =
+        spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessLow,
+        )
     LaunchedEffect(revealTarget) {
-        if (revealTarget) {
-            reveal.animateTo(
-                targetValue = 1f,
-                animationSpec =
-                    spring(
-                        dampingRatio = Spring.DampingRatioNoBouncy,
-                        stiffness = Spring.StiffnessLow,
-                    ),
-            )
-        } else {
-            // retract the goo blob gooeyly instead of snapping it away, so the download icon
-            // can tear off together with it when the queue panel opens
-            reveal.animateTo(
-                targetValue = 0f,
-                animationSpec =
-                    spring(
-                        dampingRatio = Spring.DampingRatioNoBouncy,
-                        stiffness = Spring.StiffnessLow,
-                    ),
-            )
-        }
+        reveal.animateTo(targetValue = if (revealTarget) 1f else 0f, animationSpec = revealSpec)
     }
     val revealValue by reveal.asState()
-    // Fades the goo blob out when the queue panel opens, so the solid circle under the scrim
-    // stops peeking out next to the panel once it has fully faded.
+
+    // Fades the goo blob out when the queue panel opens so the solid circle under the scrim stops peeking out.
     val blobPresence by animateFloatAsState(
         targetValue = if (state.expanded) 0f else 1f,
         animationSpec = tween(Timing.QUEUE_PANEL_ANIMATION_DURATION_MS),

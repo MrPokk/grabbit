@@ -28,10 +28,8 @@ import javax.inject.Singleton
 
 private const val TAG = "SettingsRepository"
 
-/** How the app follows the system light/dark setting. */
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
-/** Persisted user preferences; defaults are defined here and reused everywhere. */
 data class AppSettings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val dynamicColor: Boolean = true,
@@ -52,16 +50,13 @@ data class AppSettings(
     val customFolderUri: String? = null,
     val autoCheckUpdates: Boolean = true,
     val lastUpdateCheck: Long = 0L,
-    /** `null` = system default. Otherwise a tag from [Languages.SUPPORTED]. */
     val language: String? = null,
 ) {
-    /** Whether the user picked a SAF destination instead of MediaStore. */
     val hasCustomFolder: Boolean get() = !customFolderUri.isNullOrBlank()
 }
 
 private val Context.settingsStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
-/** DataStore-backed settings; reads fall back to defaults when the store is unreadable. */
 @Singleton
 class SettingsRepository
     @Inject
@@ -91,7 +86,6 @@ class SettingsRepository
             val LAST_UPDATE = longPreferencesKey("last_update")
         }
 
-        /** Live settings with invalid stored values replaced by their defaults. */
         val settings: Flow<AppSettings> =
             context.settingsStore.data
                 .catch { e ->
@@ -134,52 +128,37 @@ class SettingsRepository
                     )
                 }
 
-        /** One-shot read of the current settings. */
         suspend fun current(): AppSettings = settings.first()
 
-        /** Stores the theme mode. */
         suspend fun setThemeMode(mode: ThemeMode) = edit { it[Keys.THEME] = mode.name }
 
-        /** Enables or disables Material You colors. */
         suspend fun setDynamicColor(enabled: Boolean) = edit { it[Keys.DYNAMIC] = enabled }
 
-        /** Stores the default video height. */
         suspend fun setDefaultVideoHeight(height: Int) = edit { it[Keys.VIDEO_HEIGHT] = height }
 
-        /** Stores the default video container. */
         suspend fun setDefaultVideoContainer(container: String) = edit { it[Keys.VIDEO_CONTAINER] = container }
 
-        /** Stores the default audio format. */
         suspend fun setDefaultAudioFormat(format: String) = edit { it[Keys.AUDIO_FORMAT] = format }
 
-        /** Stores the default audio bitrate. */
         suspend fun setDefaultAudioBitrate(bitrate: Int) = edit { it[Keys.AUDIO_BITRATE] = bitrate }
 
-        /** Stores the media type used by quick download. */
         suspend fun setQuickMediaType(type: MediaType) = edit { it[Keys.QUICK_MEDIA_TYPE] = type.name }
 
-        /** Stores the concurrency limit, clamped to the supported range. */
         suspend fun setConcurrentDownloads(count: Int) =
             edit {
                 it[Keys.CONCURRENT] = count.coerceIn(Limits.MIN_CONCURRENT_DOWNLOADS, Limits.MAX_CONCURRENT_DOWNLOADS)
             }
 
-        /** Enables or disables thumbnail embedding. */
         suspend fun setEmbedThumbnail(enabled: Boolean) = edit { it[Keys.EMBED_THUMBNAIL] = enabled }
 
-        /** Enables or disables metadata embedding. */
         suspend fun setEmbedMetadata(enabled: Boolean) = edit { it[Keys.EMBED_METADATA] = enabled }
 
-        /** Enables or disables subtitle download. */
         suspend fun setSubtitles(enabled: Boolean) = edit { it[Keys.SUBTITLES] = enabled }
 
-        /** Enables or disables SponsorBlock removal. */
         suspend fun setSponsorBlock(enabled: Boolean) = edit { it[Keys.SPONSORBLOCK] = enabled }
 
-        /** Stores the yt-dlp output filename template. */
         suspend fun setFilenameTemplate(template: String) = edit { it[Keys.FILENAME] = template }
 
-        /** Stores the cookies file location, clearing both keys when [path] is `null`. */
         suspend fun setCookies(
             path: String?,
             name: String?,
@@ -193,25 +172,20 @@ class SettingsRepository
             }
         }
 
-        /** Stores a trimmed proxy address; empty means no proxy. */
         suspend fun setProxy(proxy: String) = edit { it[Keys.PROXY] = proxy.trim() }
 
-        /** Stores the SAF treeUri, or clears it when [uri] is `null`. */
         suspend fun setCustomFolder(uri: String?) =
             edit {
                 if (uri == null) it.remove(Keys.FOLDER_URI) else it[Keys.FOLDER_URI] = uri
             }
 
-        /** Enables or disables automatic yt-dlp update checks. */
         suspend fun setAutoCheckUpdates(enabled: Boolean) = edit { it[Keys.AUTO_UPDATE] = enabled }
 
-        /** Stores a language tag, or clears it to follow the system locale. */
         suspend fun setLanguage(tag: String?) =
             edit {
                 if (tag == null) it.remove(Keys.LANGUAGE) else it[Keys.LANGUAGE] = tag
             }
 
-        /** Records the last update check time. */
         suspend fun setLastUpdateCheck(timestamp: Long) = edit { it[Keys.LAST_UPDATE] = timestamp }
 
         private suspend fun edit(block: (MutablePreferences) -> Unit) {

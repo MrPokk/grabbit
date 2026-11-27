@@ -16,9 +16,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.AudioFile
 import androidx.compose.material.icons.rounded.FileOpen
-import androidx.compose.material.icons.rounded.OpenInNew
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -198,7 +198,7 @@ internal fun ResultCard(
             Spacer(Modifier.height(Dimens.xs))
             Row(horizontalArrangement = Arrangement.spacedBy(Dimens.xs)) {
                 Button(onClick = { openFile(context, uri, mimeType) }) {
-                    Icon(Icons.Rounded.OpenInNew, contentDescription = null)
+                    Icon(Icons.AutoMirrored.Rounded.OpenInNew, contentDescription = null)
                     Spacer(Modifier.width(Dimens.xxs))
                     Text(stringResource(R.string.convert_open))
                 }

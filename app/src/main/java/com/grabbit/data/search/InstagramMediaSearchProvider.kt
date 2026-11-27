@@ -12,7 +12,6 @@ import javax.inject.Inject
 
 private const val TAG = "InstagramSearch"
 
-/** Turns a free-form query into the hashtag name used by Instagram's tag feed. */
 internal object InstagramSearchQuery {
     fun hashtag(query: String): String? =
         query
@@ -24,7 +23,6 @@ internal object InstagramSearchQuery {
             .ifEmpty { null }
 }
 
-/** Searches Instagram through yt-dlp's hashtag extractor. */
 class InstagramMediaSearchProvider
     @Inject
     constructor(

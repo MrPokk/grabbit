@@ -3,7 +3,6 @@ package com.grabbit.data.search
 import com.grabbit.core.MediaPlatform
 import javax.inject.Inject
 
-/** Routes a search to the provider that owns the selected platform. */
 class CompositeMediaSearchProvider
     @Inject
     constructor(

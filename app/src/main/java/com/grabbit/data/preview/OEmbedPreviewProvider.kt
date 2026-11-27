@@ -24,14 +24,12 @@ private const val HTTP_OK = 200
 private const val HTTP_MAX_SUCCESS = 299
 private const val NANOS_PER_MILLI = 1_000_000.0
 
-/** Title/author/thumbnail returned by a platform's public oEmbed endpoint. */
 data class LinkPreview(
     val title: String,
     val author: String?,
     val thumbnailUrl: String?,
 )
 
-/** Builds the public oEmbed URL for supported platforms; `null` for everything else. */
 object OEmbedEndpoints {
     private const val YOUTUBE_ENDPOINT = "https://www.youtube.com/oembed?format=json&url="
     private const val TIKTOK_ENDPOINT = "https://www.tiktok.com/oembed?url="
@@ -46,11 +44,6 @@ object OEmbedEndpoints {
     private fun encode(url: String): String = URLEncoder.encode(url, Charsets.UTF_8.name())
 }
 
-/**
- * Fetches the instant link preview from a platform's oEmbed endpoint.
- * Failures are expected (private videos, playlists, offline) and are ignored:
- * the full yt-dlp fetch is still running and will report the real error.
- */
 @Singleton
 class OEmbedPreviewProvider
     @Inject
@@ -72,27 +65,35 @@ class OEmbedPreviewProvider
                     AppLog.d(TAG) { "oEmbed ${if (preview != null) "hit" else "empty"} in ${elapsedMs}ms" }
                     preview
                 } catch (e: IOException) {
-                    AppLog.d(TAG) { "oEmbed request failed: ${e.message}" }
+                    logFetchError("oEmbed request failed", e)
                     null
                 } catch (e: SerializationException) {
-                    AppLog.d(TAG) { "oEmbed response is not JSON: ${e.message}" }
+                    logFetchError("oEmbed response is not JSON", e)
                     null
                 } catch (e: IllegalArgumentException) {
-                    AppLog.d(TAG) { "oEmbed request is invalid: ${e.message}" }
+                    logFetchError("oEmbed request is invalid", e)
                     null
                 }
             }
 
+        private fun logFetchError(
+            message: String,
+            e: Exception,
+        ) {
+            AppLog.d(TAG) { "$message: ${e.message}" }
+        }
+
         private fun request(endpoint: String): String? {
-            val connection =
-                (URL(endpoint).openConnection() as HttpURLConnection).apply {
-                    connectTimeout = Timing.OEMBED_TIMEOUT_MS
-                    readTimeout = Timing.OEMBED_TIMEOUT_MS
-                    requestMethod = "GET"
-                    instanceFollowRedirects = true
-                    setRequestProperty("User-Agent", Net.USER_AGENT)
-                    setRequestProperty("Accept", "application/json")
-                }
+            val connection = URL(endpoint).openConnection()
+            check(connection is HttpURLConnection) { "Unexpected connection type: ${connection::class.simpleName}" }
+            connection.apply {
+                connectTimeout = Timing.OEMBED_TIMEOUT_MS
+                readTimeout = Timing.OEMBED_TIMEOUT_MS
+                requestMethod = "GET"
+                instanceFollowRedirects = true
+                setRequestProperty("User-Agent", Net.USER_AGENT)
+                setRequestProperty("Accept", "application/json")
+            }
             return try {
                 val code = connection.responseCode
                 if (code !in HTTP_OK..HTTP_MAX_SUCCESS) return null

@@ -18,27 +18,24 @@ private const val TAG = "SearchHttp"
 private const val HTTP_OK = 200
 private const val HTTP_MAX_SUCCESS = 299
 
-/** Minimal blocking HTTP helper for the search providers; responses are small HTML/JSON pages. */
 internal object SearchHttp {
     suspend fun get(
         url: String,
         headers: Map<String, String> = emptyMap(),
     ): String =
         withContext(Dispatchers.IO) {
-            val connection =
-                (URL(url).openConnection() as HttpURLConnection).apply {
-                    connectTimeout = Timing.SEARCH_HTTP_TIMEOUT_MS
-                    readTimeout = Timing.SEARCH_HTTP_TIMEOUT_MS
-                    requestMethod = "GET"
-                    instanceFollowRedirects = true
-                    setRequestProperty("User-Agent", Net.USER_AGENT)
-                    setRequestProperty(
-                        "Accept",
-                        "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                    )
-                    setRequestProperty("Accept-Language", "en-US,en;q=0.9")
-                    headers.forEach { (name, value) -> setRequestProperty(name, value) }
-                }
+            val connection = URL(url).openConnection()
+            check(connection is HttpURLConnection) { "Unexpected connection type: ${connection::class.simpleName}" }
+            connection.apply {
+                connectTimeout = Timing.SEARCH_HTTP_TIMEOUT_MS
+                readTimeout = Timing.SEARCH_HTTP_TIMEOUT_MS
+                requestMethod = "GET"
+                instanceFollowRedirects = true
+                setRequestProperty("User-Agent", Net.USER_AGENT)
+                setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                setRequestProperty("Accept-Language", "en-US,en;q=0.9")
+                headers.forEach { (name, value) -> setRequestProperty(name, value) }
+            }
             try {
                 coroutineContext.ensureActive()
                 val code = connection.responseCode

@@ -49,7 +49,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.grabbit.R
 import com.grabbit.core.Formatters
@@ -57,6 +57,7 @@ import com.grabbit.core.UiValues
 import com.grabbit.data.db.HistoryEntity
 import com.grabbit.ui.components.DeleteConfirmationDialog
 import com.grabbit.ui.components.DeleteMode
+import com.grabbit.ui.components.DownloadActionsCallbacks
 import com.grabbit.ui.components.DownloadActionsMenu
 import com.grabbit.ui.components.EmptyState
 import com.grabbit.ui.components.ListItemTransition
@@ -68,7 +69,6 @@ import com.grabbit.ui.theme.Dimens
 
 private val HistoryThumbnailWidth = 88.dp
 
-/** History screen with search, saved-file actions and deletion confirmation. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(viewModel: HistoryViewModel = hiltViewModel()) {
@@ -254,12 +254,15 @@ private fun HistoryRow(
             DownloadActionsMenu(
                 expanded = menuOpen,
                 onDismiss = { menuOpen = false },
-                onOpen = onOpen,
-                onShowInFolder = onShowInFolder,
-                onShare = onShare,
-                onRedownload = onRedownload,
-                onRemove = onRemove,
-                onDelete = onDelete,
+                callbacks =
+                    DownloadActionsCallbacks(
+                        onOpen = onOpen,
+                        onShowInFolder = onShowInFolder,
+                        onShare = onShare,
+                        onRedownload = onRedownload,
+                        onRemove = onRemove,
+                        onDelete = onDelete,
+                    ),
             )
         }
     }

@@ -23,7 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.grabbit.R
 import com.grabbit.core.MimeTypes
@@ -31,7 +31,6 @@ import com.grabbit.data.download.ConvertFormat
 import com.grabbit.ui.components.SectionHeader
 import com.grabbit.ui.theme.Dimens
 
-/** Screen for picking a media file, choosing a target format and converting it. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConvertScreen(

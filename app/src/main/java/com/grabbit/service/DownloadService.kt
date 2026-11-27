@@ -20,11 +20,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/**
- * Foreground anchor for the download queue. The actual work happens in
- * [DownloadEngine]; this service keeps the process alive and shows a single
- * ongoing download notification built by [DownloadNotificationManager].
- */
 @AndroidEntryPoint
 class DownloadService : Service() {
     @Inject
