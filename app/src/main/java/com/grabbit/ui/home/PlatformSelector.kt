@@ -103,8 +103,12 @@ internal fun PlatformTrailingIcons(
     sharedScope: SharedTransitionScope,
     selected: MediaPlatform?,
     onPlatformClick: (MediaPlatform) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         MediaPlatform.entries.forEach { platform ->
             AnimatedVisibility(
                 visible = selected == platform,
