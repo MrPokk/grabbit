@@ -104,6 +104,7 @@ tasks
 android {
     namespace = "com.grabbit"
     compileSdk = 36
+    buildToolsVersion = "36.0.0"
 
     sourceSets {
         getByName("main").res.srcDir("src/main/res")
