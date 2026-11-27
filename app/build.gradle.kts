@@ -7,7 +7,10 @@ import java.util.Properties
 
 private val localProps =
     Properties().apply {
-        rootProject.file("local.properties").inputStream().use { load(it) }
+        val file = rootProject.file("local.properties")
+        if (file.exists()) {
+            file.inputStream().use { load(it) }
+        }
     }
 private val storeFile =
     localProps["storeFile"]
