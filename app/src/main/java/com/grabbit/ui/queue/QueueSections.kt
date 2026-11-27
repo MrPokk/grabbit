@@ -78,7 +78,6 @@ internal fun TaskCard(
     callbacks: TaskCallbacks,
 ) {
     val resources = LocalResources.current
-    val statusText = statusText(task)
     var menuOpen by remember { mutableStateOf(false) }
     val canOpen = task.status == TaskStatus.COMPLETED && task.savedUri != null
 
@@ -171,9 +170,9 @@ internal fun TaskCard(
                             targetState = task.status,
                             animationSpec = Motion.StatusChangeSpec,
                             label = "taskStatusText",
-                        ) {
+                        ) { status ->
                             Text(
-                                text = statusText,
+                                text = statusText(status, task),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = statusColor,
                             )
@@ -183,9 +182,9 @@ internal fun TaskCard(
                         targetState = task.status,
                         animationSpec = Motion.StatusChangeSpec,
                         label = "taskActionIcon",
-                    ) {
+                    ) { status ->
                         TaskActions(
-                            task = task,
+                            task = task.copy(status = status),
                             callbacks = callbacks,
                             onMore = onMore,
                         )
@@ -319,15 +318,18 @@ internal fun TaskActions(
 }
 
 @Composable
-internal fun statusText(task: DownloadTask): String =
-    when (task.status) {
+internal fun statusText(
+    status: TaskStatus,
+    task: DownloadTask,
+): String =
+    when (status) {
         TaskStatus.QUEUED -> stringResource(R.string.status_queued)
         TaskStatus.PREPARING -> stringResource(R.string.status_preparing)
         TaskStatus.DOWNLOADING -> {
             val eta = task.etaSeconds?.let { stringResource(R.string.eta_label, Formatters.duration(it)) }
             val details = listOfNotNull(task.speed, eta)
-            details.fold(stringResource(R.string.status_downloading)) { status, detail ->
-                stringResource(R.string.status_downloading_details, status, detail)
+            details.fold(stringResource(R.string.status_downloading)) { text, detail ->
+                stringResource(R.string.status_downloading_details, text, detail)
             }
         }
 
