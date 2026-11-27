@@ -34,7 +34,7 @@ class QueueSummaryTest {
             QueueSummary.from(
                 listOf(
                     task("a", TaskStatus.DOWNLOADING, 0.5f),
-                    task("b", TaskStatus.CONVERTING, 1f),
+                    task("b", TaskStatus.SAVING, 1f),
                     task("paused", TaskStatus.PAUSED, 1f),
                 ),
             )

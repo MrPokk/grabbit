@@ -1,5 +1,8 @@
 package com.grabbit.ui.queue
 
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -28,6 +31,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -47,6 +52,8 @@ import com.grabbit.data.download.TaskStatus
 import com.grabbit.ui.components.DownloadActionsMenu
 import com.grabbit.ui.components.Thumbnail
 import com.grabbit.ui.theme.Dimens
+import com.grabbit.ui.theme.Motion
+import kotlinx.coroutines.delay
 
 private val TaskThumbnailWidth = 88.dp
 
@@ -63,6 +70,7 @@ internal data class TaskCallbacks(
     val onDelete: () -> Unit,
 )
 
+@Suppress("LongMethod") // TaskCard is inherently one screen section; splitting the status branches harms clarity.
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun TaskCard(
@@ -73,13 +81,56 @@ internal fun TaskCard(
     val statusText = statusText(task)
     var menuOpen by remember { mutableStateOf(false) }
     val canOpen = task.status == TaskStatus.COMPLETED && task.savedUri != null
+
+    // Noticeable but short scale pop when a task reaches a terminal state (completed or failed).
+    var pulse by remember { mutableStateOf(false) }
+    var prevStatus by remember { mutableStateOf<TaskStatus?>(null) }
+    LaunchedEffect(task.status) {
+        val justBecameTerminal =
+            prevStatus != null && task.status.isFinished && task.status != prevStatus
+        prevStatus = task.status
+        if (justBecameTerminal) {
+            pulse = true
+            delay(Motion.TerminalFeedbackHoldMs.toLong())
+            pulse = false
+        }
+    }
+    val popScale by animateFloatAsState(
+        targetValue = if (pulse) Motion.TerminalPopScale else 1f,
+        animationSpec = Motion.PressSpec,
+        label = "taskTerminalPop",
+    )
+
+    val statusColor by animateColorAsState(
+        targetValue =
+            if (task.status == TaskStatus.FAILED) {
+                MaterialTheme.colorScheme.onErrorContainer
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+        animationSpec = Motion.StatusColorSpec,
+        label = "taskStatusColor",
+    )
+    val cardColor by animateColorAsState(
+        targetValue =
+            if (task.status == TaskStatus.FAILED) {
+                MaterialTheme.colorScheme.errorContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceContainerLow
+            },
+        animationSpec = Motion.StatusColorSpec,
+        label = "taskCardColor",
+    )
     val openMenu = { menuOpen = true }
     val onMore = if (canOpen) openMenu else null
     val cardModifier =
         Modifier
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.large)
-            .then(
+            .graphicsLayer {
+                scaleX = popScale
+                scaleY = popScale
+            }.then(
                 if (canOpen) {
                     Modifier.combinedClickable(
                         onClick = openMenu,
@@ -96,15 +147,7 @@ internal fun TaskCard(
     Box {
         Card(
             modifier = cardModifier,
-            colors =
-                CardDefaults.cardColors(
-                    containerColor =
-                        if (task.status == TaskStatus.FAILED) {
-                            MaterialTheme.colorScheme.errorContainer
-                        } else {
-                            MaterialTheme.colorScheme.surfaceContainerLow
-                        },
-                ),
+            colors = CardDefaults.cardColors(containerColor = cardColor),
         ) {
             Column(Modifier.padding(Dimens.sm)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -124,28 +167,35 @@ internal fun TaskCard(
                             overflow = TextOverflow.Ellipsis,
                         )
                         Spacer(Modifier.height(Dimens.xxs))
-                        Text(
-                            text = statusText,
-                            style = MaterialTheme.typography.bodySmall,
-                            color =
-                                if (task.status == TaskStatus.FAILED) {
-                                    MaterialTheme.colorScheme.onErrorContainer
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                },
+                        Crossfade(
+                            targetState = task.status,
+                            animationSpec = Motion.StatusChangeSpec,
+                            label = "taskStatusText",
+                        ) {
+                            Text(
+                                text = statusText,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = statusColor,
+                            )
+                        }
+                    }
+                    Crossfade(
+                        targetState = task.status,
+                        animationSpec = Motion.StatusChangeSpec,
+                        label = "taskActionIcon",
+                    ) {
+                        TaskActions(
+                            task = task,
+                            callbacks = callbacks,
+                            onMore = onMore,
                         )
                     }
-                    TaskActions(
-                        task = task,
-                        callbacks = callbacks,
-                        onMore = onMore,
-                    )
                 }
 
                 if (task.status.isActive) {
                     Spacer(Modifier.height(Dimens.xs))
-                    LinearProgressIndicator(
-                        progress = { task.progress },
+                    AnimatedTaskProgress(
+                        progress = task.progress,
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(Modifier.height(Dimens.xxs))
@@ -287,3 +337,21 @@ internal fun statusText(task: DownloadTask): String =
         TaskStatus.CANCELLED -> stringResource(R.string.status_cancelled)
         TaskStatus.FAILED -> stringResource(R.string.status_failed)
     }
+
+/** Progress bar that interpolates between values instead of jumping. Only this composable
+ * recomposes while the animation runs; the parent card stays stable. */
+@Composable
+private fun AnimatedTaskProgress(
+    progress: Float,
+    modifier: Modifier = Modifier,
+) {
+    val animatedProgress by animateFloatAsState(
+        targetValue = progress,
+        animationSpec = Motion.ProgressChangeSpec,
+        label = "taskProgress",
+    )
+    LinearProgressIndicator(
+        progress = { animatedProgress },
+        modifier = modifier,
+    )
+}

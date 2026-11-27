@@ -1,6 +1,7 @@
 package com.grabbit.ui.queue
 
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -10,6 +11,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -27,6 +29,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
@@ -40,6 +43,7 @@ import com.grabbit.data.download.MediaType
 import com.grabbit.ui.components.DeleteConfirmationDialog
 import com.grabbit.ui.components.DeleteMode
 import com.grabbit.ui.components.EmptyState
+import com.grabbit.ui.components.ListItemTransition
 import com.grabbit.ui.components.openSavedFile
 import com.grabbit.ui.components.shareSavedFile
 import com.grabbit.ui.components.showSavedFileInFolder
@@ -71,8 +75,12 @@ fun QueueScreen(
     }
 
     Column(modifier.fillMaxSize()) {
+        BackHandler(enabled = onCollapse != null) {
+            onCollapse?.invoke()
+        }
         TopAppBar(
             title = { Text(stringResource(R.string.queue_title)) },
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
             navigationIcon = {
                 if (onCollapse == null) {
                     IconButton(onClick = onBack) {
@@ -85,6 +93,14 @@ fun QueueScreen(
             },
             scrollBehavior = scrollBehavior,
             actions = {
+                if (onCollapse != null) {
+                    IconButton(onClick = onCollapse) {
+                        Icon(
+                            Icons.Rounded.Close,
+                            contentDescription = stringResource(R.string.action_close),
+                        )
+                    }
+                }
                 if (tasks.any { it.status.isFinished }) {
                     IconButton(onClick = viewModel::clearFinished) {
                         Icon(
@@ -133,30 +149,32 @@ fun QueueScreen(
                     }
                 }
                 items(tasks, key = { it.id }) { task ->
-                    TaskCard(
-                        task = task,
-                        callbacks =
-                            TaskCallbacks(
-                                onPause = { viewModel.pause(task.id) },
-                                onResume = { viewModel.resume(task.id) },
-                                onCancel = { viewModel.cancel(task.id) },
-                                onRetry = { viewModel.retry(task.id) },
-                                onRemove = { viewModel.remove(task.id) },
-                                onOpen = {
-                                    task.savedUri?.let { uri -> openSavedFile(context, uri, task.mimeType()) }
-                                },
-                                onShowInFolder = {
-                                    task.savedUri?.let { uri -> showSavedFileInFolder(context, uri) }
-                                },
-                                onShare = {
-                                    task.savedUri?.let { uri ->
-                                        shareSavedFile(context, uri, task.fileName, task.mimeType())
-                                    }
-                                },
-                                onRedownload = { viewModel.downloadAgain(task) },
-                                onDelete = { pendingDelete = task to DeleteMode.DELETE_FILE },
-                            ),
-                    )
+                    ListItemTransition {
+                        TaskCard(
+                            task = task,
+                            callbacks =
+                                TaskCallbacks(
+                                    onPause = { viewModel.pause(task.id) },
+                                    onResume = { viewModel.resume(task.id) },
+                                    onCancel = { viewModel.cancel(task.id) },
+                                    onRetry = { viewModel.retry(task.id) },
+                                    onRemove = { viewModel.remove(task.id) },
+                                    onOpen = {
+                                        task.savedUri?.let { uri -> openSavedFile(context, uri, task.mimeType()) }
+                                    },
+                                    onShowInFolder = {
+                                        task.savedUri?.let { uri -> showSavedFileInFolder(context, uri) }
+                                    },
+                                    onShare = {
+                                        task.savedUri?.let { uri ->
+                                            shareSavedFile(context, uri, task.fileName, task.mimeType())
+                                        }
+                                    },
+                                    onRedownload = { viewModel.downloadAgain(task) },
+                                    onDelete = { pendingDelete = task to DeleteMode.DELETE_FILE },
+                                ),
+                        )
+                    }
                 }
                 item(key = "settings") {
                     TextButton(onClick = onOpenSettings) {

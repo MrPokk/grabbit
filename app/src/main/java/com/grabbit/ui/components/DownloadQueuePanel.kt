@@ -78,8 +78,14 @@ fun DownloadQueuePanel(
                         Modifier
                             .align(if (edge == DockEdge.LEFT) Alignment.CenterStart else Alignment.CenterEnd)
                             .fillMaxSize()
-                            .padding(Dimens.md),
+                            .padding(
+                                start = Dimens.xl,
+                                top = Dimens.xl,
+                                end = Dimens.xl,
+                                bottom = Dimens.xl * 2,
+                            ),
                     shape = MaterialTheme.shapes.large,
+                    // Card-window: doesn't reach the bottom edge so the bar stays visible underneath.
                     color = MaterialTheme.colorScheme.surfaceContainerHigh,
                     tonalElevation = Dimens.xxs,
                     shadowElevation = Dimens.sm,

@@ -54,6 +54,10 @@ data class DownloadOptions(
     val embedMetadata: Boolean = true,
     val subtitles: Boolean = false,
     val sponsorBlock: Boolean = false,
+    /** Per-download SAF folder URI, overriding the global save folder. `null` = use the default. */
+    val saveFolderUri: String? = null,
+    /** Custom file name without extension, or `null` to use the filename template. */
+    val fileName: String? = null,
 ) {
     /** Short human-readable summary shown in history and conversion results. */
     val formatLabel: String

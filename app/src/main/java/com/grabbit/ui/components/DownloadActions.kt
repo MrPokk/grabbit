@@ -1,12 +1,14 @@
 package com.grabbit.ui.components
 
 import android.content.ActivityNotFoundException
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.os.Environment
+import android.os.FileUriExposedException
 import android.provider.DocumentsContract
 import android.provider.MediaStore
 import android.widget.Toast
@@ -19,20 +21,22 @@ import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import androidx.core.net.toUri
 import com.grabbit.R
 import com.grabbit.core.AppLog
+import java.io.File
 
 private const val TAG = "DownloadActions"
 
 private const val EXTERNAL_STORAGE_AUTHORITY = "com.android.externalstorage.documents"
-private const val MEDIA_AUTHORITY = "media"
-private const val PRIMARY_VOLUME_ID = "primary"
-private const val EXTERNAL_VOLUME_SEGMENT = "external"
+
+private const val PRIMARY_VOLUME = "primary"
 
 // Every menu entry is an independent callback; grouping them into a holder would obscure the wiring.
 @Suppress("LongParameterList")
@@ -50,7 +54,9 @@ fun DownloadActionsMenu(
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismiss,
+        shape = MaterialTheme.shapes.large,
     ) {
+        // Работа с файлом.
         DropdownMenuItem(
             text = { Text(stringResource(R.string.action_open)) },
             leadingIcon = { Icon(Icons.Rounded.OpenInNew, contentDescription = null) },
@@ -75,6 +81,8 @@ fun DownloadActionsMenu(
                 onShare()
             },
         )
+        HorizontalDivider()
+        // Управление задачей.
         DropdownMenuItem(
             text = { Text(stringResource(R.string.action_redownload)) },
             leadingIcon = { Icon(Icons.Rounded.Refresh, contentDescription = null) },
@@ -83,6 +91,8 @@ fun DownloadActionsMenu(
                 onRedownload()
             },
         )
+        HorizontalDivider()
+        // Удаление.
         DropdownMenuItem(
             text = { Text(stringResource(R.string.action_remove_from_list)) },
             leadingIcon = { Icon(Icons.Rounded.Close, contentDescription = null) },
@@ -124,93 +134,138 @@ fun showSavedFileInFolder(
     context: Context,
     uri: String,
 ) {
-    val folderUri = savedFileFolderUri(context, uri.toUri())
-    if (folderUri == null) {
-        Toast.makeText(context, R.string.error_file_location, Toast.LENGTH_SHORT).show()
+    val fileUri = uri.toUri()
+    // Prefer showing the parent folder so the user sees the file next to its siblings.
+    val folderUri = savedFileFolderUri(context, fileUri)
+    if (folderUri != null && openFolderPickerAt(context, folderUri)) return
+    // Fall back to opening the file itself when no app can show its folder.
+    if (openUriViaChooser(context, fileUri, null, R.string.action_open)) {
         return
     }
+    AppLog.e(TAG, "No activity can show the file location or open the file")
+    copyPathToClipboard(context, fileUri)
+    Toast.makeText(context, R.string.error_cannot_open_folder, Toast.LENGTH_LONG).show()
+}
+
+private fun openFolderPickerAt(
+    context: Context,
+    folderUri: Uri,
+): Boolean {
+    val intent =
+        Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "*/*"
+            putExtra(DocumentsContract.EXTRA_INITIAL_URI, folderUri)
+        }
+    return try {
+        context.startActivity(intent)
+        true
+    } catch (e: ActivityNotFoundException) {
+        AppLog.e(TAG, "No file manager can show $folderUri", e)
+        false
+    } catch (e: SecurityException) {
+        AppLog.e(TAG, "Cannot show folder $folderUri", e)
+        false
+    }
+}
+
+/** Opens [uri] with ACTION_VIEW in a chooser so the user picks the app. Returns true on success. */
+private fun openUriViaChooser(
+    context: Context,
+    uri: Uri,
+    mimeType: String?,
+    titleRes: Int,
+): Boolean {
     val intent =
         Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(folderUri, DocumentsContract.Document.MIME_TYPE_DIR)
+            if (mimeType != null) {
+                setDataAndType(uri, mimeType)
+            } else {
+                setData(uri)
+            }
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-    try {
-        context.startActivity(intent)
+    return try {
+        context.startActivity(Intent.createChooser(intent, context.getString(titleRes)))
+        true
     } catch (e: ActivityNotFoundException) {
-        AppLog.e(TAG, "No activity can show the file location", e)
-        Toast.makeText(context, R.string.error_file_location, Toast.LENGTH_SHORT).show()
+        AppLog.e(TAG, "No activity can handle $uri", e)
+        false
+    } catch (e: SecurityException) {
+        AppLog.e(TAG, "Cannot access $uri", e)
+        false
+    } catch (e: FileUriExposedException) {
+        AppLog.e(TAG, "File URI exposure for $uri", e)
+        false
     }
+}
+
+private fun copyPathToClipboard(
+    context: Context,
+    uri: Uri,
+) {
+    val manager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    manager.setPrimaryClip(ClipData.newPlainText("file_path", uri.toString()))
+    Toast.makeText(context, R.string.path_copied_to_clipboard, Toast.LENGTH_SHORT).show()
 }
 
 private fun savedFileFolderUri(
     context: Context,
     uri: Uri,
 ): Uri? {
-    val documentId =
-        when {
-            uri.scheme == ContentResolver.SCHEME_FILE -> folderDocumentIdFromPath(uri.path)
-            uri.authority == EXTERNAL_STORAGE_AUTHORITY -> folderDocumentIdFromExternalStorage(uri)
-            uri.authority == MEDIA_AUTHORITY -> folderDocumentIdFromMediaStore(context, uri)
-            else -> null
-        } ?: return null
-    return DocumentsContract.buildDocumentUri(EXTERNAL_STORAGE_AUTHORITY, documentId)
+    if (uri.scheme == ContentResolver.SCHEME_FILE) {
+        return uri.path?.let(::folderUriForAbsolutePath)
+    }
+    return when (uri.authority) {
+        MediaStore.AUTHORITY -> folderUriFromMediaStore(context, uri)
+        EXTERNAL_STORAGE_AUTHORITY -> folderUriFromDocument(uri)
+        else -> null
+    }
 }
 
-private fun folderDocumentIdFromExternalStorage(uri: Uri): String? {
-    val documentId =
-        if (DocumentsContract.isTreeUri(uri)) {
-            DocumentsContract.getTreeDocumentId(uri)
+@Suppress("DEPRECATION")
+private fun folderUriFromMediaStore(
+    context: Context,
+    uri: Uri,
+): Uri? {
+    val projection = arrayOf(MediaStore.MediaColumns.RELATIVE_PATH, MediaStore.MediaColumns.DATA)
+    val cursor = context.contentResolver.query(uri, projection, null, null, null) ?: return null
+    return cursor.use { c ->
+        if (!c.moveToFirst()) return@use null
+        val relativeIndex = c.getColumnIndex(MediaStore.MediaColumns.RELATIVE_PATH)
+        val relative = if (relativeIndex >= 0) c.getString(relativeIndex) else null
+        if (!relative.isNullOrBlank()) {
+            folderUriForRelativePath(relative)
         } else {
-            DocumentsContract.getDocumentId(uri)
+            val dataIndex = c.getColumnIndex(MediaStore.MediaColumns.DATA)
+            val data = if (dataIndex >= 0) c.getString(dataIndex) else null
+            if (data.isNullOrBlank()) null else folderUriForAbsolutePath(data)
         }
+    }
+}
+
+private fun folderUriFromDocument(uri: Uri): Uri? {
+    val documentId = DocumentsContract.getDocumentId(uri)
     if (!documentId.contains(':')) return null
     val volume = documentId.substringBefore(':')
     val path = documentId.substringAfter(':')
-    return "$volume:" + path.substringBeforeLast('/', missingDelimiterValue = "")
+    val parentPath = path.substringBeforeLast('/', missingDelimiterValue = "")
+    val parentDocumentId = if (parentPath.isEmpty()) volume else "$volume:$parentPath"
+    return DocumentsContract.buildDocumentUri(EXTERNAL_STORAGE_AUTHORITY, parentDocumentId)
 }
 
-private fun folderDocumentIdFromMediaStore(
-    context: Context,
-    uri: Uri,
-): String? {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-        val volume =
-            uri.pathSegments.firstOrNull()?.let {
-                if (it == EXTERNAL_VOLUME_SEGMENT) PRIMARY_VOLUME_ID else it
-            } ?: return null
-        val relativePath = queryColumn(context, uri, MediaStore.MediaColumns.RELATIVE_PATH) ?: return null
-        return "$volume:" + relativePath.trimEnd('/')
-    }
-    @Suppress("DEPRECATION")
-    val data = queryColumn(context, uri, MediaStore.MediaColumns.DATA) ?: return null
-    return folderDocumentIdFromPath(data)
+@Suppress("DEPRECATION")
+private fun folderUriForAbsolutePath(path: String): Uri? {
+    val parent = File(path).parent ?: return null
+    val root = Environment.getExternalStorageDirectory().absolutePath.trimEnd('/')
+    return folderUriForRelativePath(parent.removePrefix("$root/").trim('/'))
 }
 
-@Suppress("DEPRECATION") // Only legacy file:// / MediaStore DATA paths from API < 29 reach here.
-private fun folderDocumentIdFromPath(path: String?): String? {
-    val absolute = path ?: return null
-    val root = Environment.getExternalStorageDirectory().absolutePath.trimEnd('/') + "/"
-    if (!absolute.startsWith(root)) return null
-    val relative = absolute.removePrefix(root).substringBeforeLast('/', missingDelimiterValue = "")
-    return "$PRIMARY_VOLUME_ID:$relative"
+private fun folderUriForRelativePath(relative: String): Uri {
+    val trimmed = relative.trim('/')
+    val documentId = if (trimmed.isEmpty()) PRIMARY_VOLUME else "$PRIMARY_VOLUME:$trimmed"
+    return DocumentsContract.buildDocumentUri(EXTERNAL_STORAGE_AUTHORITY, documentId)
 }
-
-private fun queryColumn(
-    context: Context,
-    uri: Uri,
-    column: String,
-): String? =
-    try {
-        context.contentResolver.query(uri, arrayOf(column), null, null, null)?.use { cursor ->
-            if (cursor.moveToFirst()) cursor.getString(0) else null
-        }
-    } catch (e: IllegalArgumentException) {
-        AppLog.e(TAG, "Could not read $column for $uri", e)
-        null
-    } catch (e: SecurityException) {
-        AppLog.e(TAG, "Could not read $column for $uri", e)
-        null
-    }
 
 fun shareSavedFile(
     context: Context,

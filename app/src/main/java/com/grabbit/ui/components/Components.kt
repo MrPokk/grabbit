@@ -1,5 +1,10 @@
 package com.grabbit.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,6 +36,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import coil3.compose.AsyncImage
@@ -38,6 +44,8 @@ import com.grabbit.R
 import com.grabbit.core.AppError
 import com.grabbit.core.UiValues
 import com.grabbit.ui.theme.Dimens
+import com.grabbit.ui.theme.Motion
+import kotlin.math.roundToInt
 
 /** Thumbnail with a theme corner radius; callers may override [shape] explicitly. */
 @Composable
@@ -80,36 +88,48 @@ fun EmptyState(
     modifier: Modifier = Modifier,
     action: (@Composable () -> Unit)? = null,
 ) {
-    Column(
-        modifier =
-            modifier
-                .fillMaxSize()
-                .padding(Dimens.xl),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+    val density = LocalDensity.current
+    val slidePx = (Motion.EmptyStateSlideDp.value * density.density).roundToInt()
+    AnimatedVisibility(
+        visible = true,
+        enter =
+            fadeIn(animationSpec = Motion.EmptyStateSpec) +
+                slideInVertically(animationSpec = Motion.EmptyStateSlideSpec) { _ -> slidePx },
+        exit =
+            fadeOut(animationSpec = Motion.EmptyStateSpec) +
+                slideOutVertically(animationSpec = Motion.EmptyStateSlideSpec) { _ -> slidePx },
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(Dimens.iconLg),
-        )
-        Spacer(Modifier.height(Dimens.md))
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleLarge,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(Modifier.height(Dimens.xs))
-        Text(
-            text = body,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
-        if (action != null) {
-            Spacer(Modifier.height(Dimens.lg))
-            action()
+        Column(
+            modifier =
+                modifier
+                    .fillMaxSize()
+                    .padding(Dimens.xl),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(Dimens.iconLg),
+            )
+            Spacer(Modifier.height(Dimens.md))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(Dimens.xs))
+            Text(
+                text = body,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+            if (action != null) {
+                Spacer(Modifier.height(Dimens.lg))
+                action()
+            }
         }
     }
 }
@@ -151,12 +171,18 @@ fun ErrorCard(
                     )
                 }
                 if (expanded) {
-                    Text(
-                        text = technical,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = UiValues.DETAILS_MAX_LINES,
-                    )
+                    AnimatedVisibility(
+                        visible = expanded,
+                        enter = fadeIn(animationSpec = Motion.StatusChangeSpec),
+                        exit = fadeOut(animationSpec = Motion.StatusChangeSpec),
+                    ) {
+                        Text(
+                            text = technical,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = UiValues.DETAILS_MAX_LINES,
+                        )
+                    }
                 }
             }
             if (onRetry != null || (onUpdate != null && error.suggestUpdate)) {

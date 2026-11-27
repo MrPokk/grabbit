@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="error_cannot_open_folder">Не удалось открыть папку. Путь к файлу скопирован в буфер обмена.</string>
+    <string name="path_copied_to_clipboard">Путь к файлу скопирован в буфер обмена</string>
+</resources>

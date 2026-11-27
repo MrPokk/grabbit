@@ -62,7 +62,6 @@
     <string name="error_drm">This video is DRM-protected and cannot be downloaded.</string>
     <string name="error_fetch_timeout">Getting video info took too long. Try again.</string>
     <string name="error_ffmpeg">Conversion failed. Try another format.</string>
-    <string name="error_file_location">Could not open the file location</string>
     <string name="error_format">That format is not available. Pick another quality.</string>
     <string name="error_geo">Blocked in your region.</string>
     <string name="error_invalid_url">That doesn\'t look like a valid link.</string>
@@ -144,8 +143,6 @@
     <string name="queue_file_info">%1$s · %2$s</string>
     <string name="queue_progress_percent">%1$d%%</string>
     <string name="queue_title">Queue</string>
-    <string name="search_empty_body">Try a different query.</string>
-    <string name="search_empty_title">Nothing found</string>
     <string name="search_hint">Search %1$s</string>
     <string name="search_prompt_body">Type a query to find videos on %1$s.</string>
     <string name="search_prompt_title">Search %1$s</string>

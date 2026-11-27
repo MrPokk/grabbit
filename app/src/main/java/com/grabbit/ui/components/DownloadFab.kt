@@ -109,9 +109,13 @@ private fun DownloadProgressContent(
                     summary.count,
                 ),
             tint = contentColor,
-            modifier = Modifier
-                .size(Dimens.gooIconSize)
-                .graphicsLayer { scaleX = contentScale; scaleY = contentScale },
+            modifier =
+                Modifier
+                    .size(Dimens.gooIconSize)
+                    .graphicsLayer {
+                        scaleX = contentScale
+                        scaleY = contentScale
+                    },
         )
     }
 }
