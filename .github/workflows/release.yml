@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       abi:
-        description: 'ABI (arm64-v8a, armeabi-v7a, x86_64)'
+        description: 'ABI for adb install (arm64-v8a, armeabi-v7a, x86_64). Release artifacts always include every ABI + universal.'
         required: true
         default: 'x86_64'
       device:
@@ -23,9 +23,18 @@ permissions:
 env:
   GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx4g"
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
+  checks:
+    uses: ./.github/workflows/checks.yml
+
   build-and-install:
+    needs: checks
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -60,6 +69,7 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
       - name: Assemble Release APK
+        # version source is committed version.properties; builds no longer mutate it. Version bumped in a separate commit.
         run: ./gradlew :app:assembleRelease --console=plain
 
       - name: Rename APKs
@@ -99,19 +109,44 @@ jobs:
           minor=$(grep '^MINOR=' version.properties | cut -d= -f2)
           build=$(grep '^BUILD=' version.properties | cut -d= -f2)
           tag="v${major}.${minor}.${build}"
+          title="Grabbit ${tag}"
+          apk_dir=app/build/outputs/apk/release
+
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "GitHub release $tag already exists" >&2
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
+            echo "git tag $tag already exists" >&2
+            exit 1
+          fi
+
           gh release create "$tag" \
-            app/build/outputs/apk/release/grabbit-*-release.apk \
-            app/build/outputs/apk/release/sha256sums.txt \
-            --title "Grabbit $tag" \
+            "$apk_dir"/grabbit-*-release.apk \
+            "$apk_dir/sha256sums.txt" \
+            --title "$title" \
             --generate-notes
-          # Append SHA-256 checksums to the release notes (integrity check for downloaded APKs).
+
+          # Canonical notes: generated 'What's Changed' + fixed Release assets + fixed SHA-256 sections.
           {
             gh release view "$tag" --json body -q .body
-            printf '\n### SHA-256\n```\n'
-            cat app/build/outputs/apk/release/sha256sums.txt
+            printf '\n## Release assets\n\n'
+            printf '%s\n' \
+              '- `grabbit-arm64-v8a-release.apk` — arm64-v8a' \
+              '- `grabbit-armeabi-v7a-release.apk` — armeabi-v7a' \
+              '- `grabbit-x86_64-release.apk` — x86_64' \
+              '- `grabbit-universal-release.apk` — universal (all supported ABIs)' \
+              '- `sha256sums.txt` — SHA-256 checksums for every APK' \
+              '' \
+              'All APKs are signed, R8-minified (`shrinkResources`). Verify with `sha256sum -c sha256sums.txt`.'
+            printf '\n## SHA-256\n```\n'
+            cat "$apk_dir/sha256sums.txt"
             printf '```\n'
           } > notes.md
           gh release edit "$tag" --notes-file notes.md
+
+          echo "Published $title"
+          gh release view "$tag" --json tagName,name,url,assets
 
       - name: Install on device via adb
         if: ${{ inputs.device != '' }}

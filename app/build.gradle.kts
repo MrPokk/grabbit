@@ -37,44 +37,18 @@ plugins {
     alias(libs.plugins.ktlint)
 }
 
-val versionPropertiesFile = rootProject.file("version.properties")
-val versionProperties = Properties().apply { versionPropertiesFile.inputStream().use(::load) }
+// Single source of truth: committed version.properties. Never mutated by builds; bump via a separate commit.
+private val versionCodeMajorMultiplier = 1_000_000
+private val versionCodeMinorMultiplier = 1_000
+
+val versionProperties = Properties().apply { rootProject.file("version.properties").inputStream().use(::load) }
 val majorVersion = versionProperties.getProperty("MAJOR").toInt()
 val minorVersion = versionProperties.getProperty("MINOR").toInt()
 val lastBuild = versionProperties.getProperty("BUILD").toInt()
-val skipVersionBump = providers.gradleProperty("skipVersionBump").isPresent
-// Increment build, but if it reaches 15, bump minor and reset build to 1
-val bumpMinor = lastBuild >= 15 && !skipVersionBump
-val newMinor = if (bumpMinor) minorVersion + 1 else minorVersion
-val newBuild = if (bumpMinor) 1 else lastBuild + 1
-val versionNameValue = "$majorVersion.$newMinor.$newBuild"
-val versionCode = newBuild
-val versionPropertiesContent = "MAJOR=$majorVersion\nMINOR=$newMinor\nBUILD=$newBuild\n"
-
-tasks.register("bumpVersion") {
-    val propertiesFile = versionPropertiesFile
-    val propertiesContent = versionPropertiesContent
-    doLast {
-        if (propertiesFile.readText() != propertiesContent) {
-            propertiesFile.writeText(propertiesContent)
-        }
-    }
-}
-
-if (!skipVersionBump) {
-    tasks
-        .matching { task ->
-            task.name.matches(Regex("^(assemble|bundle|install)(Debug|Release)$"))
-        }.configureEach {
-            val propertiesFile = versionPropertiesFile
-            val propertiesContent = versionPropertiesContent
-            doLast {
-                if (propertiesFile.readText() != propertiesContent) {
-                    propertiesFile.writeText(propertiesContent)
-                }
-            }
-        }
-}
+val versionNameValue = "$majorVersion.$minorVersion.$lastBuild"
+// Strictly increasing across major/minor/build so Android never blocks an upgrade.
+val appVersionCode =
+    majorVersion * versionCodeMajorMultiplier + minorVersion * versionCodeMinorMultiplier + lastBuild
 
 val generateI18nRes =
     tasks.register<Sync>("generateI18nRes") {
@@ -115,7 +89,7 @@ android {
         applicationId = "com.grabbit"
         minSdk = 26
         targetSdk = 36
-        versionCode = newBuild
+        versionCode = appVersionCode
         versionName = versionNameValue
 
         vectorDrawables.useSupportLibrary = true
