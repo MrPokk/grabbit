@@ -12,7 +12,7 @@ enum class ExtractionEnginePreference(
     ;
 
     companion object {
-        val DEFAULT = YTDLP_ONLY
+        val DEFAULT = AUTO
 
         fun fromKey(key: String?): ExtractionEnginePreference = entries.firstOrNull { it.key == key } ?: DEFAULT
     }
