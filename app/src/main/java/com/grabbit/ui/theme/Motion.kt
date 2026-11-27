@@ -7,6 +7,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.grabbit.core.Timing
 
@@ -156,4 +157,8 @@ object Motion {
 
     val PlatformTransitionSpec =
         tween<Float>(durationMillis = PlatformTransitionMs, easing = StandardEasing)
+
+    /** Width change of a platform chip leaving or joining the selector row, so the row reflows smoothly. */
+    val PlatformResizeSpec =
+        tween<IntSize>(durationMillis = PlatformTransitionMs, easing = StandardEasing)
 }

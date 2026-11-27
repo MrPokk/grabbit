@@ -8,8 +8,10 @@ import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -76,8 +78,12 @@ internal fun PlatformSelectorRow(
         MediaPlatform.entries.forEach { platform ->
             AnimatedVisibility(
                 visible = selected != platform,
-                enter = fadeIn(animationSpec = Motion.PlatformTransitionSpec),
-                exit = fadeOut(animationSpec = Motion.PlatformTransitionSpec),
+                enter =
+                    fadeIn(animationSpec = Motion.PlatformTransitionSpec) +
+                        expandHorizontally(animationSpec = Motion.PlatformResizeSpec),
+                exit =
+                    fadeOut(animationSpec = Motion.PlatformTransitionSpec) +
+                        shrinkHorizontally(animationSpec = Motion.PlatformResizeSpec),
             ) {
                 PlatformChip(
                     sharedScope = sharedScope,
