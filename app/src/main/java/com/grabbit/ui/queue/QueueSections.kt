@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
@@ -56,6 +57,9 @@ import com.grabbit.ui.theme.Motion
 import kotlinx.coroutines.delay
 
 private val TaskThumbnailWidth = 88.dp
+
+private val taskActionButtonModifier =
+    Modifier.sizeIn(minWidth = Dimens.iconButton, minHeight = Dimens.iconButton)
 
 internal data class TaskCallbacks(
     val onPause: () -> Unit,
@@ -172,7 +176,7 @@ internal fun TaskCard(
                             label = "taskStatusText",
                         ) { status ->
                             Text(
-                                text = statusText(status, task),
+                                text = statusText(status),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = statusColor,
                             )
@@ -198,7 +202,7 @@ internal fun TaskCard(
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(Modifier.height(Dimens.xxs))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Column(verticalArrangement = Arrangement.spacedBy(Dimens.xxs)) {
                         Text(
                             text =
                                 stringResource(
@@ -223,18 +227,20 @@ internal fun TaskCard(
                     task.fileName?.let { name ->
                         Spacer(Modifier.height(Dimens.xxs))
                         Text(
-                            text =
-                                stringResource(
-                                    R.string.queue_file_info,
-                                    name,
-                                    Formatters.bytes(resources, task.sizeBytes),
-                                ),
+                            text = name,
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
                         )
                     }
+                }
+
+                if (task.sizeBytes > 0L) {
+                    Spacer(Modifier.height(Dimens.xxs))
+                    Text(
+                        text = Formatters.bytes(resources, task.sizeBytes),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
 
                 if (task.status == TaskStatus.FAILED && task.error != null) {
@@ -277,39 +283,39 @@ internal fun TaskActions(
     Row {
         when (task.status) {
             TaskStatus.QUEUED, TaskStatus.PREPARING, TaskStatus.DOWNLOADING, TaskStatus.SAVING -> {
-                IconButton(onClick = callbacks.onPause) {
+                IconButton(onClick = callbacks.onPause, modifier = taskActionButtonModifier) {
                     Icon(Icons.Rounded.Pause, contentDescription = stringResource(R.string.action_pause))
                 }
-                IconButton(onClick = callbacks.onCancel) {
+                IconButton(onClick = callbacks.onCancel, modifier = taskActionButtonModifier) {
                     Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.action_cancel))
                 }
             }
 
             TaskStatus.PAUSED -> {
-                IconButton(onClick = callbacks.onResume) {
+                IconButton(onClick = callbacks.onResume, modifier = taskActionButtonModifier) {
                     Icon(Icons.Rounded.PlayArrow, contentDescription = stringResource(R.string.action_resume))
                 }
-                IconButton(onClick = callbacks.onCancel) {
+                IconButton(onClick = callbacks.onCancel, modifier = taskActionButtonModifier) {
                     Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.action_cancel))
                 }
             }
 
             TaskStatus.FAILED -> {
-                IconButton(onClick = callbacks.onRetry) {
+                IconButton(onClick = callbacks.onRetry, modifier = taskActionButtonModifier) {
                     Icon(Icons.Rounded.Refresh, contentDescription = stringResource(R.string.action_retry))
                 }
-                IconButton(onClick = callbacks.onRemove) {
+                IconButton(onClick = callbacks.onRemove, modifier = taskActionButtonModifier) {
                     Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.action_remove))
                 }
             }
 
             TaskStatus.COMPLETED, TaskStatus.CANCELLED -> {
                 if (onMore != null) {
-                    IconButton(onClick = onMore) {
+                    IconButton(onClick = onMore, modifier = taskActionButtonModifier) {
                         Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.cd_more))
                     }
                 }
-                IconButton(onClick = callbacks.onRemove) {
+                IconButton(onClick = callbacks.onRemove, modifier = taskActionButtonModifier) {
                     Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.action_remove))
                 }
             }
@@ -318,20 +324,11 @@ internal fun TaskActions(
 }
 
 @Composable
-internal fun statusText(
-    status: TaskStatus,
-    task: DownloadTask,
-): String =
+internal fun statusText(status: TaskStatus): String =
     when (status) {
         TaskStatus.QUEUED -> stringResource(R.string.status_queued)
         TaskStatus.PREPARING -> stringResource(R.string.status_preparing)
-        TaskStatus.DOWNLOADING -> {
-            val eta = task.etaSeconds?.let { stringResource(R.string.eta_label, Formatters.duration(it)) }
-            val details = listOfNotNull(task.speed, eta)
-            details.fold(stringResource(R.string.status_downloading)) { text, detail ->
-                stringResource(R.string.status_downloading_details, text, detail)
-            }
-        }
+        TaskStatus.DOWNLOADING -> stringResource(R.string.status_downloading)
 
         TaskStatus.SAVING -> stringResource(R.string.status_saving)
         TaskStatus.COMPLETED -> stringResource(R.string.status_completed)
