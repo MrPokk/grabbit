@@ -18,9 +18,6 @@ object Dimens {
     val iconLg: Dp = 56.dp
     val iconButton: Dp = 48.dp
 
-    /** Upward correction so the trailing platform chip sits on the input field's visual centre. */
-    val platformTrailingOffset: Dp = 2.dp
-
     /** Diameter of the docked progress circle; the goo transition starts exactly on its rim. */
     val gooCircleSize: Dp = 36.dp
 
