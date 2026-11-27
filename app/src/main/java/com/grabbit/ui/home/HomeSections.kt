@@ -38,6 +38,7 @@ import com.grabbit.core.Limits
 import com.grabbit.core.Links
 import com.grabbit.core.UiValues
 import com.grabbit.data.download.MediaType
+import com.grabbit.data.preview.LinkPreview
 import com.grabbit.data.settings.AppSettings
 import com.grabbit.data.ytdlp.FetchedMedia
 import com.grabbit.ui.components.EmptyState
@@ -53,7 +54,7 @@ internal fun LazyListScope.homeMediaContent(
     settings: AppSettings,
     viewModel: HomeViewModel,
 ) {
-    if (state.loading) {
+    if (state.loading && state.preview == null) {
         item(key = "loading") {
             Column(Modifier.fillMaxWidth().padding(top = Dimens.xs)) {
                 LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -76,6 +77,13 @@ internal fun LazyListScope.homeMediaContent(
                 onRetry = viewModel::fetch,
                 onUpdate = viewModel::updateYtDlpAndRetry,
             )
+        }
+    }
+
+    val preview = state.preview
+    if (state.media == null && preview != null) {
+        item(key = "link_preview") {
+            LinkPreviewCard(preview = preview, loading = state.loading)
         }
     }
 
@@ -179,6 +187,48 @@ internal fun LazyListScope.homeMediaContent(
         onOpen = viewModel::openSearchResult,
         onRetry = viewModel::search,
     )
+}
+
+@Composable
+internal fun LinkPreviewCard(
+    preview: LinkPreview,
+    loading: Boolean,
+) {
+    Card(Modifier.fillMaxWidth()) {
+        Column {
+            Thumbnail(
+                url = preview.thumbnailUrl,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(UiValues.THUMBNAIL_ASPECT_RATIO),
+                shape = MaterialTheme.shapes.extraSmall,
+            )
+            Column(Modifier.padding(Dimens.md), verticalArrangement = Arrangement.spacedBy(Dimens.xs)) {
+                Text(
+                    text = preview.title,
+                    style = MaterialTheme.typography.titleLarge,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                preview.author?.let { author ->
+                    Text(
+                        text = author,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (loading) {
+                    LinearProgressIndicator(Modifier.fillMaxWidth())
+                    Text(
+                        text = stringResource(R.string.preview_loading_formats),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable

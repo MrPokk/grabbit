@@ -7,6 +7,8 @@ import androidx.lifecycle.viewModelScope
 import com.grabbit.R
 import com.grabbit.core.AppError
 import com.grabbit.core.AppLog
+import com.grabbit.core.FetchStage
+import com.grabbit.core.FetchTrace
 import com.grabbit.core.Links
 import com.grabbit.core.MediaPlatform
 import com.grabbit.core.stateInUi
@@ -15,6 +17,8 @@ import com.grabbit.data.download.DownloadOptions
 import com.grabbit.data.download.DownloadRepository
 import com.grabbit.data.download.DownloadRequest
 import com.grabbit.data.download.MediaType
+import com.grabbit.data.preview.LinkPreview
+import com.grabbit.data.preview.OEmbedPreviewProvider
 import com.grabbit.data.search.MediaSearchProvider
 import com.grabbit.data.search.MediaSearchResult
 import com.grabbit.data.search.SearchException
@@ -54,6 +58,7 @@ class HomeViewModel
         private val downloads: DownloadRepository,
         private val settingsRepository: SettingsRepository,
         private val searchProvider: MediaSearchProvider,
+        private val oEmbed: OEmbedPreviewProvider,
     ) : ViewModel() {
         /** Everything the home screen needs to render its current state. */
         data class UiState(
@@ -71,6 +76,8 @@ class HomeViewModel
             val searching: Boolean = false,
             val searchResults: List<MediaSearchResult> = emptyList(),
             val searchError: AppError? = null,
+            /** Instant oEmbed title/author/thumbnail shown before yt-dlp finishes. */
+            val preview: LinkPreview? = null,
         )
 
         private val _state = MutableStateFlow(UiState())
@@ -80,6 +87,11 @@ class HomeViewModel
         private var fetchProcessId: String? = null
         private var searchJob: Job? = null
         private var searchGeneration = 0
+        private var previewJob: Job? = null
+        private var previewUrl: String? = null
+        private var trace: FetchTrace? = null
+        private var linkPreviewReported = false
+        private var mediaPreviewReported = false
 
         val settings: StateFlow<AppSettings> =
             settingsRepository.settings
@@ -92,6 +104,9 @@ class HomeViewModel
         /** Updates the URL field and hides the clipboard hint. Triggers debounced auto-fetch. */
         fun onUrlChange(value: String) {
             _state.update { it.copy(url = value, clipboardHint = false) }
+            // A new link means the old extraction is pointless: kill it now, not after the debounce.
+            cancelActiveFetch()
+            schedulePreview(value)
             scheduleAutoFetch(value)
         }
 
@@ -100,6 +115,7 @@ class HomeViewModel
             val link = clipboardLink()
             if (link != null) {
                 _state.update { it.copy(url = link, clipboardHint = true, error = null) }
+                schedulePreview(link)
                 scheduleAutoFetch(link)
             }
         }
@@ -107,7 +123,18 @@ class HomeViewModel
         private var autoFetchJob: Job? = null
 
         private fun scheduleAutoFetch(rawUrl: String) {
-            val extracted = Links.extract(rawUrl)?.let(Links::normalize) ?: return
+            val normalizeStartedAt = FetchTrace.startedAt()
+            val extracted = Links.extract(rawUrl)?.let(Links::normalize)
+            val normalizeMs = FetchTrace.sinceMs(normalizeStartedAt)
+            if (extracted == null || _state.value.selectedPlatform != null) {
+                trace = null
+                resetPreviewReports()
+                return
+            }
+            val startedTrace = FetchTrace(extracted)
+            startedTrace.record(FetchStage.URL_NORMALIZE, normalizeMs)
+            trace = startedTrace
+            resetPreviewReports()
             autoFetchJob?.cancel()
             autoFetchJob =
                 viewModelScope.launch {
@@ -119,9 +146,36 @@ class HomeViewModel
                 }
         }
 
+        /** Shows title/author/thumbnail from oEmbed while the full yt-dlp fetch is running. */
+        private fun schedulePreview(rawUrl: String) {
+            previewJob?.cancel()
+            previewJob = null
+            val url = Links.extract(rawUrl)?.let(Links::normalize)
+            if (url == null || _state.value.selectedPlatform != null) {
+                previewUrl = null
+                _state.update { it.copy(preview = null) }
+                return
+            }
+            // Drop the previous link's card immediately; oEmbed may fail for the new one.
+            if (previewUrl != url) {
+                previewUrl = url
+                _state.update { it.copy(preview = null) }
+            }
+            previewJob =
+                viewModelScope.launch {
+                    val preview = oEmbed.fetch(url)
+                    if (preview != null && Links.normalize(_state.value.url) == url) {
+                        previewUrl = url
+                        _state.update { it.copy(preview = preview) }
+                    }
+                }
+        }
+
         /** Handles a link sent by MainActivity and immediately fetches its metadata. */
         fun acceptSharedLink(link: String) {
+            val normalizeStartedAt = FetchTrace.startedAt()
             val clean = Links.extract(link)?.let(Links::normalize) ?: return
+            val normalizeMs = FetchTrace.sinceMs(normalizeStartedAt)
             _state.update {
                 it.copy(
                     url = clean,
@@ -132,12 +186,17 @@ class HomeViewModel
                     media = null,
                 )
             }
-            fetch()
+            startTrace(clean, normalizeMs)
+            schedulePreview(clean)
+            fetchUrl(clean)
         }
 
         /** Clears the URL, result and any in-flight extraction. */
         fun clear() {
             cancelWork()
+            cancelPreview()
+            trace = null
+            resetPreviewReports()
             val platform = _state.value.selectedPlatform
             _state.update {
                 UiState(
@@ -151,6 +210,9 @@ class HomeViewModel
         /** Toggles a platform and moves the active one between the selector and the field. */
         fun onPlatformClick(platform: MediaPlatform) {
             cancelWork()
+            cancelPreview()
+            trace = null
+            resetPreviewReports()
             val current = _state.value.selectedPlatform
             _state.update {
                 if (current == platform) {
@@ -231,19 +293,32 @@ class HomeViewModel
                 _state.update { it.copy(error = AppError(R.string.error_invalid_url), loading = false) }
                 return
             }
+            startTrace(url)
             fetchUrl(url)
         }
 
         /** Opens a search result through the normal metadata pipeline. */
         fun openSearchResult(result: MediaSearchResult) {
             _state.update { it.copy(url = result.url, error = null, media = null, showSheet = false) }
+            startTrace(Links.normalize(result.url))
             fetchUrl(Links.normalize(result.url))
+        }
+
+        private fun startTrace(
+            url: String,
+            normalizeMs: Long = 0L,
+        ) {
+            val started = FetchTrace(url)
+            started.record(FetchStage.URL_NORMALIZE, normalizeMs)
+            trace = started
+            resetPreviewReports()
         }
 
         private fun fetchUrl(url: String) {
             cancelWork()
             val processId = UUID.randomUUID().toString()
             fetchProcessId = processId
+            if (trace == null) startTrace(url)
             _state.update {
                 it.copy(
                     url = url,
@@ -258,7 +333,7 @@ class HomeViewModel
                 viewModelScope.launch {
                     try {
                         val loadAsMix = _state.value.loadAsMix
-                        val media = ytDlp.fetch(url, loadAsMix, processId)
+                        val media = ytDlp.fetch(url, loadAsMix, processId, trace = trace)
                         if (fetchProcessId != processId) return@launch
                         val selected =
                             (media as? FetchedMedia.Collection)
@@ -266,7 +341,9 @@ class HomeViewModel
                                 ?.map { it.index }
                                 ?.toSet()
                                 .orEmpty()
+                        val updateStartedAt = FetchTrace.startedAt()
                         _state.update { it.copy(media = media, selectedIndices = selected) }
+                        trace?.record(FetchStage.STATE_UPDATE, FetchTrace.sinceMs(updateStartedAt))
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: InfoException) {
@@ -283,17 +360,49 @@ class HomeViewModel
                 }
         }
 
-        private fun cancelWork() {
-            autoFetchJob?.cancel()
-            autoFetchJob = null
+        /** Logs the moment a preview card (oEmbed or full) reaches the screen. */
+        fun onPreviewShown(hasMedia: Boolean) {
+            val activeTrace = trace ?: return
+            if (hasMedia) {
+                if (mediaPreviewReported) return
+                mediaPreviewReported = true
+            } else {
+                if (linkPreviewReported) return
+                linkPreviewReported = true
+            }
+            activeTrace.record(FetchStage.PREVIEW_SHOWN, activeTrace.totalMs())
+            activeTrace.logSummary()
+        }
+
+        private fun resetPreviewReports() {
+            linkPreviewReported = false
+            mediaPreviewReported = false
+        }
+
+        private fun cancelActiveFetch() {
+            if (fetchJob == null && fetchProcessId == null) return
             fetchJob?.cancel()
             fetchJob = null
             fetchProcessId?.let(ytDlp::cancelFetch)
             fetchProcessId = null
+            _state.update { it.copy(loading = false) }
+        }
+
+        private fun cancelWork() {
+            autoFetchJob?.cancel()
+            autoFetchJob = null
+            cancelActiveFetch()
             searchJob?.cancel()
             searchJob = null
             searchGeneration++
             _state.update { it.copy(loading = false, searching = false) }
+        }
+
+        private fun cancelPreview() {
+            previewJob?.cancel()
+            previewJob = null
+            previewUrl = null
+            _state.update { it.copy(preview = null) }
         }
 
         /** Toggles a Mix URL between a single video and a bounded playlist, then refetches. */
@@ -372,6 +481,8 @@ class HomeViewModel
                                 durationSeconds = media.info.durationSeconds,
                                 site = media.info.site,
                                 options = options,
+                                infoJsonPath = media.infoJsonPath,
+                                infoFetchedAtMs = media.infoFetchedAtMs,
                             ),
                         )
 
@@ -394,6 +505,9 @@ class HomeViewModel
 
             if (requests.isEmpty()) return
             downloads.enqueue(requests)
+            cancelPreview()
+            trace = null
+            resetPreviewReports()
             _state.update { UiState() }
         }
 

@@ -20,6 +20,27 @@ data class AppError(
     }
 }
 
+/** Recognizes failures that mean a cached info JSON's format URLs are no longer valid. */
+object ErrorSignals {
+    private val expiredNeedles =
+        listOf(
+            "http error 403",
+            "403: forbidden",
+            "403 forbidden",
+            "forbidden",
+            "has expired",
+            "url signature",
+            "signature expired",
+        )
+
+    /** True when yt-dlp output points at an expired/blocked format URL rather than a broken link. */
+    fun isExpiredFormatUrl(raw: String?): Boolean {
+        if (raw.isNullOrBlank()) return false
+        val text = raw.lowercase()
+        return expiredNeedles.any { text.contains(it) }
+    }
+}
+
 /** Maps raw yt-dlp / ffmpeg output to user-facing [AppError]s. */
 object ErrorMapper {
     private data class Rule(

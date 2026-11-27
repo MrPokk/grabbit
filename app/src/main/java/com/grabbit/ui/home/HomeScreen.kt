@@ -43,6 +43,14 @@ fun HomeScreen(
         }
     }
 
+    // The first card on screen marks the end of the link → preview flow for the timing log.
+    LaunchedEffect(state.preview != null, state.media != null) {
+        when {
+            state.media != null -> viewModel.onPreviewShown(hasMedia = true)
+            state.preview != null -> viewModel.onPreviewShown(hasMedia = false)
+        }
+    }
+
     Column(
         Modifier
             .fillMaxSize()

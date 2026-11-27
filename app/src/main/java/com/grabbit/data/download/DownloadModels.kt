@@ -84,6 +84,10 @@ data class DownloadRequest(
     val options: DownloadOptions,
     /** Position in the source playlist, used only for file naming. */
     val playlistIndex: Int? = null,
+    /** Fresh raw info JSON from the metadata fetch, reused by yt-dlp via `--load-info-json`. */
+    val infoJsonPath: String? = null,
+    /** Wall-clock time when [infoJsonPath] was written. */
+    val infoFetchedAtMs: Long = 0L,
 )
 
 /** Lifecycle of a queued download. */

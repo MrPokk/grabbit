@@ -146,6 +146,7 @@
         <item quantity="other">Показаны первые %1$d элементов</item>
     </plurals>
     <string name="playlist_select_all">Выбрать все</string>
+    <string name="preview_loading_formats">Загружаем доступные форматы…</string>
     <plurals name="queue_concurrency_hint">
         <item quantity="one">До %1$d загрузки одновременно — изменить можно в настройках.</item>
         <item quantity="few">До %1$d загрузок одновременно — изменить можно в настройках.</item>

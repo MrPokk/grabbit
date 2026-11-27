@@ -4,6 +4,7 @@ import com.grabbit.R
 import com.grabbit.core.AppError
 import com.grabbit.core.AppLog
 import com.grabbit.core.ErrorMapper
+import com.grabbit.core.Net
 import com.grabbit.core.Timing
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
@@ -16,8 +17,6 @@ import kotlin.coroutines.coroutineContext
 private const val TAG = "SearchHttp"
 private const val HTTP_OK = 200
 private const val HTTP_MAX_SUCCESS = 299
-private const val USER_AGENT =
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
 
 /** Minimal blocking HTTP helper for the search providers; responses are small HTML/JSON pages. */
 internal object SearchHttp {
@@ -32,7 +31,7 @@ internal object SearchHttp {
                     readTimeout = Timing.SEARCH_HTTP_TIMEOUT_MS
                     requestMethod = "GET"
                     instanceFollowRedirects = true
-                    setRequestProperty("User-Agent", USER_AGENT)
+                    setRequestProperty("User-Agent", Net.USER_AGENT)
                     setRequestProperty(
                         "Accept",
                         "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",

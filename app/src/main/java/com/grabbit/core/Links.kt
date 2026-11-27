@@ -27,6 +27,27 @@ object Links {
         return host.contains('.') && host.length > Limits.MIN_HOST_LENGTH
     }
 
+    /** Lower-cased host of an absolute URL, without port or user info. */
+    fun host(url: String): String =
+        url
+            .substringAfter("://", "")
+            .substringBefore('/')
+            .substringAfter('@')
+            .substringBefore(':')
+            .lowercase()
+
+    /** True for youtube.com, youtu.be and their subdomains. */
+    fun isYouTube(url: String): Boolean {
+        val host = host(url)
+        return host == "youtu.be" || host == "youtube.com" || host.endsWith(".youtube.com")
+    }
+
+    /** True for tiktok.com and its subdomains. */
+    fun isTikTok(url: String): Boolean {
+        val host = host(url)
+        return host == "tiktok.com" || host.endsWith(".tiktok.com")
+    }
+
     /**
      * True for YouTube "Mix" / radio URLs (`list=RD…`, `start_radio=1`).
      * These are dynamic, endless playlists that yt-dlp treats as playlists

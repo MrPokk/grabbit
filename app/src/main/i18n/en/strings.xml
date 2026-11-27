@@ -134,6 +134,7 @@
         <item quantity="other">Showing the first %1$d items</item>
     </plurals>
     <string name="playlist_select_all">Select all</string>
+    <string name="preview_loading_formats">Loading available formats…</string>
     <plurals name="queue_concurrency_hint">
         <item quantity="one">Up to %1$d download at once — change it in Settings.</item>
         <item quantity="other">Up to %1$d downloads at once — change it in Settings.</item>

@@ -3,6 +3,7 @@ package com.grabbit.data.ytdlp
 import com.grabbit.data.download.DownloadOptions
 import com.grabbit.data.download.MediaType
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -117,5 +118,22 @@ class RequestFactoryTest {
                 ).buildCommand()
         assertEquals(false, asMix.contains("--no-playlist"))
         assertTrue(asMix.any { it.contains("50") })
+    }
+
+    @Test
+    fun cachedInfoJsonIsPassedToLoadInfoJson() {
+        val request =
+            RequestFactory.build(
+                spec(DownloadOptions()).copy(infoJsonPath = "/tmp/work/info.json"),
+            )
+        val command = request.buildCommand()
+        val optionIndex = command.indexOf("--load-info-json")
+        assertTrue("command=$command", optionIndex >= 0)
+        assertEquals("/tmp/work/info.json", command[optionIndex + 1])
+    }
+
+    @Test
+    fun loadInfoJsonIsOmittedWithoutCachedInfo() {
+        assertFalse(RequestFactory.build(spec(DownloadOptions())).buildCommand().contains("--load-info-json"))
     }
 }
