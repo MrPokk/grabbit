@@ -124,7 +124,8 @@ class EngineRouter
             onProgress: (progress: Float, etaSeconds: Long, line: String) -> Unit,
         ): File {
             val kind = kindFor(spec.url)
-            if (kind != EngineKind.NEWPIPE) {
+            // Subtitles + SponsorBlock are only implemented by the yt-dlp path; don't silently drop them.
+            if (kind != EngineKind.NEWPIPE || spec.options.subtitles || spec.options.sponsorBlock) {
                 return ytDlp.download(spec, onProgress)
             }
 
