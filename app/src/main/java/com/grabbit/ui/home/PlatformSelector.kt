@@ -27,6 +27,8 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import com.grabbit.R
 import com.grabbit.core.MediaPlatform
 import com.grabbit.ui.theme.Dimens
@@ -50,6 +52,12 @@ internal val MediaPlatform.iconRes: Int
             MediaPlatform.TIKTOK -> R.drawable.ic_platform_tiktok
             MediaPlatform.INSTAGRAM -> R.drawable.ic_platform_instagram
         }
+
+/** Size of a platform selection chip. */
+private val PlatformChipSize: Dp = 40.dp
+
+/** Size of the monochrome icon inside a platform chip. */
+private val PlatformIconSize: Dp = 24.dp
 
 /** Icons above the input; the active platform leaves this row for the input's trailing slot. */
 @OptIn(ExperimentalSharedTransitionApi::class)
@@ -165,7 +173,7 @@ private fun PlatformChip(
                     animatedVisibilityScope = animatedVisibilityScope,
                     resizeMode = SharedTransitionScope.ResizeMode.RemeasureToBounds,
                 )
-            }.size(Dimens.iconButton),
+            }.size(PlatformChipSize),
         shape = CircleShape,
         color = surfaceColor,
     ) {
@@ -176,7 +184,7 @@ private fun PlatformChip(
                 iconScale = scale,
                 tintColor = tintColor,
                 contentDescription = contentDescription,
-                modifier = Modifier.size(Dimens.iconMd),
+                modifier = Modifier.size(PlatformIconSize),
             )
         }
     }
