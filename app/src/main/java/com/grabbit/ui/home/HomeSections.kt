@@ -38,6 +38,7 @@ import com.grabbit.core.Limits
 import com.grabbit.core.Links
 import com.grabbit.core.UiValues
 import com.grabbit.data.download.MediaType
+import com.grabbit.data.search.MediaSearchResult
 import com.grabbit.data.settings.AppSettings
 import com.grabbit.data.ytdlp.FetchedMedia
 import com.grabbit.ui.components.EmptyState
@@ -52,6 +53,7 @@ internal fun LazyListScope.homeMediaContent(
     state: HomeViewModel.UiState,
     settings: AppSettings,
     viewModel: HomeViewModel,
+    onOpenSearchResult: (MediaSearchResult) -> Unit,
 ) {
     if (state.loading) {
         item(key = "loading") {
@@ -176,7 +178,7 @@ internal fun LazyListScope.homeMediaContent(
 
     homeSearchContent(
         state = state,
-        onOpen = viewModel::openSearchResult,
+        onOpen = onOpenSearchResult,
         onRetry = viewModel::search,
     )
 }
