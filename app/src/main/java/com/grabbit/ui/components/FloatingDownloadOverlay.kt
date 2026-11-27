@@ -43,6 +43,8 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
+private const val HALF = 2f
+
 @Composable
 fun FloatingDownloadOverlay(
     summary: QueueSummary,
@@ -107,7 +109,7 @@ fun FloatingDownloadOverlay(
     }
 
     Box(modifier.fillMaxSize().onSizeChanged { containerSize = it }) {
-        val targetHalf = with(LocalDensity.current) { (Dimens.gooTapTargetSize / 2).roundToPx() }
+        val targetHalf = with(LocalDensity.current) { (Dimens.gooTapTargetSize / HALF).roundToPx() }
         val centerX = horizontalPosition.value.roundToInt()
         val centerY = verticalPosition.value.roundToInt()
 
