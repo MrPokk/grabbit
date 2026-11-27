@@ -103,6 +103,8 @@ internal fun UrlCard(
                             } else {
                                 stringResource(R.string.url_hint)
                             },
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 },
                 singleLine = true,
@@ -113,7 +115,10 @@ internal fun UrlCard(
                     )
                 },
                 trailingIcon = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        modifier = Modifier.padding(end = Dimens.xs),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                         if (url.isNotEmpty()) {
                             IconButton(onClick = onClear) {
                                 Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.cd_clear))
@@ -144,47 +149,68 @@ internal fun UrlCard(
                     ),
             )
 
-            Row(horizontalArrangement = Arrangement.spacedBy(Dimens.xs)) {
-                OutlinedButton(
-                    onClick = onPaste,
-                    shape = MaterialTheme.shapes.extraLarge,
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Icon(
-                        Icons.Rounded.ContentPaste,
-                        contentDescription = null,
-                        modifier = Modifier.size(Dimens.iconSm),
-                    )
-                    Spacer(Modifier.width(Dimens.xxs))
-                    Text(stringResource(R.string.action_paste))
-                }
-                Button(
-                    onClick = onSubmit,
-                    enabled = url.isNotBlank() && !busy,
-                    shape = MaterialTheme.shapes.extraLarge,
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Icon(
-                        imageVector = if (searchMode) Icons.Rounded.Search else Icons.Rounded.Download,
-                        contentDescription = null,
-                        modifier = Modifier.size(Dimens.iconSm),
-                    )
-                    Spacer(Modifier.width(Dimens.xxs))
-                    Text(
-                        text =
-                            stringResource(
-                                when {
-                                    loading -> R.string.fetching
-                                    searching -> R.string.searching
-                                    searchMode -> R.string.action_search
-                                    else -> R.string.action_fetch
-                                },
-                            ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
+            UrlActionRow(
+                onPaste = onPaste,
+                onSubmit = onSubmit,
+                url = url,
+                busy = busy,
+                searchMode = searchMode,
+                loading = loading,
+                searching = searching,
+            )
+        }
+    }
+}
+
+@Composable
+private fun UrlActionRow(
+    onPaste: () -> Unit,
+    onSubmit: () -> Unit,
+    url: String,
+    busy: Boolean,
+    searchMode: Boolean,
+    loading: Boolean,
+    searching: Boolean,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(Dimens.xs)) {
+        OutlinedButton(
+            onClick = onPaste,
+            shape = MaterialTheme.shapes.extraLarge,
+            modifier = Modifier.weight(1f),
+        ) {
+            Icon(
+                Icons.Rounded.ContentPaste,
+                contentDescription = null,
+                modifier = Modifier.size(Dimens.iconSm),
+            )
+            Spacer(Modifier.width(Dimens.xxs))
+            Text(stringResource(R.string.action_paste))
+        }
+        Button(
+            onClick = onSubmit,
+            enabled = url.isNotBlank() && !busy,
+            shape = MaterialTheme.shapes.extraLarge,
+            modifier = Modifier.weight(1f),
+        ) {
+            Icon(
+                imageVector = if (searchMode) Icons.Rounded.Search else Icons.Rounded.Download,
+                contentDescription = null,
+                modifier = Modifier.size(Dimens.iconSm),
+            )
+            Spacer(Modifier.width(Dimens.xxs))
+            Text(
+                text =
+                    stringResource(
+                        when {
+                            loading -> R.string.fetching
+                            searching -> R.string.searching
+                            searchMode -> R.string.action_search
+                            else -> R.string.action_fetch
+                        },
+                    ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }

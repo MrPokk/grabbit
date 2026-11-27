@@ -133,4 +133,27 @@ object Motion {
 
     /** Empty state enter slide offset. */
     val EmptyStateSlideDp: Dp = 12.dp
+
+    /** Platform selector chip selected-state change (color / alpha / scale). */
+    val PlatformChangeMs: Int = Timing.PLATFORM_COLOR_DURATION_MS
+
+    /** Platform indicator travel between the row above the input and the trailing slot. */
+    val PlatformTransitionMs: Int = Timing.PLATFORM_TRANSITION_DURATION_MS
+
+    /** Chip alpha when inactive / active. */
+    val PlatformInactiveAlpha: Float = 0.45f
+    val PlatformActiveAlpha: Float = 1.0f
+
+    /** Chip scale when inactive / active. */
+    val PlatformInactiveScale: Float = 0.92f
+    val PlatformActiveScale: Float = 1.0f
+
+    val PlatformChangeSpec =
+        tween<Float>(durationMillis = PlatformChangeMs, easing = StandardEasing)
+
+    val PlatformColorSpec =
+        tween<Color>(durationMillis = PlatformChangeMs, easing = StandardEasing)
+
+    val PlatformTransitionSpec =
+        tween<Float>(durationMillis = PlatformTransitionMs, easing = StandardEasing)
 }
