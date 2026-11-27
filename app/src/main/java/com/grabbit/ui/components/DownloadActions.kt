@@ -91,6 +91,8 @@ fun DownloadActionsMenu(
                 onRedownload()
             },
         )
+        HorizontalDivider()
+        // Удаление.
         DropdownMenuItem(
             text = { Text(stringResource(R.string.action_remove_from_list)) },
             leadingIcon = { Icon(Icons.Rounded.Close, contentDescription = null) },
