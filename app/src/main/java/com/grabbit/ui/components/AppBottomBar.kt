@@ -42,7 +42,10 @@ private val FabSize = Dimens.iconLg + Dimens.sm
 private val FabCenterY = FabOffset + FabSize * UiValues.MIDPOINT
 
 // The cradle blob grows when Download is selected; the wider middle gap keeps both items clear of it.
+// Side gaps are trimmed in favour of item width so long Russian labels stay on one line; the centre stays put.
 private const val CENTER_GAP_WEIGHT = 2f
+private const val NAV_ITEM_WEIGHT = 1.5f
+private const val SIDE_GAP_WEIGHT = 0.5f
 
 @Composable
 fun AppBottomBar(
@@ -100,13 +103,13 @@ fun AppBottomBar(
             tonalElevation = 0.dp,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.weight(SIDE_GAP_WEIGHT))
             NavigationBarItem(
                 selected = historySelected,
                 onClick = { if (!historySelected) onNavigate(Routes.HISTORY) },
                 icon = { Icon(Icons.Rounded.History, contentDescription = null) },
                 label = { Text(stringResource(R.string.nav_history)) },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(NAV_ITEM_WEIGHT),
             )
             Spacer(Modifier.weight(CENTER_GAP_WEIGHT))
             NavigationBarItem(
@@ -114,9 +117,9 @@ fun AppBottomBar(
                 onClick = { if (!settingsSelected) onNavigate(Routes.SETTINGS) },
                 icon = { Icon(Icons.Rounded.Settings, contentDescription = null) },
                 label = { Text(stringResource(R.string.nav_settings)) },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(NAV_ITEM_WEIGHT),
             )
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.weight(SIDE_GAP_WEIGHT))
         }
         GooeyCradleBlob(
             circleRadius = cradleSize * UiValues.MIDPOINT,

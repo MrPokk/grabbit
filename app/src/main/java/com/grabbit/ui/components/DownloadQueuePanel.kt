@@ -79,9 +79,9 @@ fun DownloadQueuePanel(
                             .align(if (edge == DockEdge.LEFT) Alignment.CenterStart else Alignment.CenterEnd)
                             .fillMaxSize()
                             .padding(
-                                start = Dimens.xl,
-                                top = Dimens.xl,
-                                end = Dimens.xl,
+                                start = Dimens.md,
+                                top = Dimens.md,
+                                end = Dimens.md,
                                 bottom = Dimens.xl * 2,
                             ),
                     shape = MaterialTheme.shapes.large,
