@@ -69,6 +69,7 @@ class HomeViewModel
             val searchResults: List<MediaSearchResult> = emptyList(),
             val searchError: AppError? = null,
             val preview: LinkPreview? = null,
+            val engineUsed: String? = null,
         )
 
         private val _state = MutableStateFlow(UiState())
@@ -314,6 +315,7 @@ class HomeViewModel
                     error = null,
                     media = null,
                     searchError = null,
+                    engineUsed = null,
                 )
             }
             fetchJob = viewModelScope.launch { launchFetch(url, processId) }
@@ -334,7 +336,8 @@ class HomeViewModel
                         ?.toSet()
                         .orEmpty()
                 val updateStartedAt = FetchTrace.startedAt()
-                _state.update { it.copy(media = media, selectedIndices = selected) }
+                val engineName = trace?.engine?.takeIf { it.isNotBlank() }
+                _state.update { it.copy(media = media, selectedIndices = selected, engineUsed = engineName) }
                 trace?.record(FetchStage.STATE_UPDATE, FetchTrace.sinceMs(updateStartedAt))
             } catch (e: CancellationException) {
                 throw e

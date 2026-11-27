@@ -24,7 +24,7 @@ class FetchTrace(
     private val stages = LinkedHashMap<FetchStage, Long>()
 
     @Volatile
-    private var engine: String? = null
+    private var _engine: String? = null
 
     fun record(
         stage: FetchStage,
@@ -48,9 +48,13 @@ class FetchTrace(
 
     /** Record which extraction engine produced the result (for debug details). */
     fun setEngine(name: String) {
-        engine = name
+        _engine = name
         AppLog.d(TAG) { "$label engine=$name" }
     }
+
+    /** Last recorded engine name, if any. */
+    val engine: String?
+        get() = _engine
 
     fun totalMs(): Long = nanosToMillis(System.nanoTime() - startedAtNanos)
 
