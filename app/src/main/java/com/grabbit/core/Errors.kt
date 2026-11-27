@@ -27,10 +27,38 @@ object ErrorSignals {
             "signature expired",
         )
 
-    fun isExpiredFormatUrl(raw: String?): Boolean {
+    private val authenticationNeedles =
+        listOf(
+            "private video",
+            "this video is private",
+            "login required",
+            "sign in to confirm you're not a bot",
+        )
+
+    private val transientNeedles =
+        listOf(
+            "http error 403",
+            "http error 429",
+            "http error 5",
+            "timed out",
+            "timeout",
+            "connection reset",
+            "temporary failure in name resolution",
+        )
+
+    fun isExpiredFormatUrl(raw: String?): Boolean = containsAny(raw, expiredNeedles)
+
+    fun isAuthenticationRequired(raw: String?): Boolean = containsAny(raw, authenticationNeedles)
+
+    fun isTransientDownloadFailure(raw: String?): Boolean = containsAny(raw, transientNeedles)
+
+    private fun containsAny(
+        raw: String?,
+        needles: List<String>,
+    ): Boolean {
         if (raw.isNullOrBlank()) return false
         val text = raw.lowercase()
-        return expiredNeedles.any { text.contains(it) }
+        return needles.any { text.contains(it) }
     }
 }
 
@@ -50,16 +78,6 @@ object ErrorMapper {
                     "inappropriate for some users",
                 ),
                 AppError(R.string.error_age, suggestUpdate = false),
-            ),
-            Rule(
-                listOf(
-                    "private video",
-                    "this video is private",
-                    "login required",
-                    "sign in to confirm you're not a bot",
-                    "cookies",
-                ),
-                AppError(R.string.error_private),
             ),
             Rule(
                 listOf(
@@ -146,6 +164,7 @@ object ErrorMapper {
         val rule = rules.firstOrNull { r -> r.needles.any { text.contains(it) } }
         val error =
             when {
+                ErrorSignals.isAuthenticationRequired(raw) -> AppError(R.string.error_private)
                 rule != null -> rule.error
                 isUnsupportedForSubmittedUrl(text, url) -> AppError(R.string.error_unsupported)
                 else -> AppError.unknown(raw.takeLast(Limits.ERROR_TECHNICAL_DETAIL_CHARS))

@@ -14,7 +14,6 @@ import com.grabbit.core.Limits
 import com.grabbit.core.MimeTypes
 import com.grabbit.core.Timing
 import com.grabbit.data.convert.FfmpegRunner
-import com.grabbit.data.db.HistoryDao
 import com.grabbit.data.db.HistoryEntity
 import com.grabbit.data.media.MediaSaver
 import com.grabbit.data.settings.SettingsRepository
@@ -22,7 +21,6 @@ import com.grabbit.data.ytdlp.DownloadCancelledException
 import com.grabbit.data.ytdlp.DownloadException
 import com.grabbit.data.ytdlp.DownloadSpec
 import com.grabbit.data.ytdlp.FetchedMedia
-import com.grabbit.data.ytdlp.InfoCacheStore
 import com.grabbit.data.ytdlp.InfoException
 import com.grabbit.data.ytdlp.YtDlpEngine
 import com.yausername.youtubedl_android.YoutubeDL
@@ -56,7 +54,6 @@ private fun DownloadTask.idle() = copy(speed = null, etaSeconds = null)
 
 @Singleton
 class DownloadEngine
-    @Suppress("LongParameterList") // Hilt constructor injection; a parameter holder would only hide the wiring.
     @Inject
     constructor(
         @ApplicationContext private val context: Context,
@@ -64,9 +61,10 @@ class DownloadEngine
         private val settings: SettingsRepository,
         private val saver: MediaSaver,
         private val ffmpeg: FfmpegRunner,
-        private val historyDao: HistoryDao,
-        private val infoCache: InfoCacheStore,
+        private val stores: DownloadStores,
     ) {
+        private val historyDao get() = stores.historyDao
+        private val infoCache get() = stores.infoCache
         private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         private val json = Json { ignoreUnknownKeys = true }
 
@@ -295,21 +293,33 @@ class DownloadEngine
         private suspend fun downloadWithInfoRetry(
             id: String,
             spec: DownloadSpec,
+            retried: Boolean = false,
         ): File {
             val progress = { p: Float, eta: Long, line: String -> onProgress(id, p, eta, line) }
             return try {
                 ytDlp.download(spec, progress)
             } catch (e: DownloadException) {
-                val stale = spec.infoJsonPath
-                if (stale == null || !ErrorSignals.isExpiredFormatUrl(e.error.technical)) throw e
-                AppLog.d(TAG) { "cached info expired, re-fetching once: ${spec.url}" }
-                infoCache.discard(stale)
-                val fresh =
-                    (ytDlp.fetch(spec.url, loadMixAsPlaylist = false, bypassCache = true) as? FetchedMedia.Single)
-                        ?.takeIf { infoCache.isFresh(it.infoJsonPath, it.infoFetchedAtMs) }
-                        ?.infoJsonPath
-                ytDlp.download(spec.copy(infoJsonPath = fresh), progress)
+                if (retried) throw e
+                val refreshed = refreshedSpecAfterFailure(spec, e)
+                if (refreshed == null && !ErrorSignals.isTransientDownloadFailure(e.error.technical)) throw e
+                AppLog.d(TAG) { "transient download failure, retrying once: ${spec.url}" }
+                downloadWithInfoRetry(id, refreshed ?: spec, retried = true)
             }
+        }
+
+        private suspend fun refreshedSpecAfterFailure(
+            spec: DownloadSpec,
+            e: DownloadException,
+        ): DownloadSpec? {
+            val stale = spec.infoJsonPath ?: return null
+            if (!ErrorSignals.isExpiredFormatUrl(e.error.technical)) return null
+            AppLog.d(TAG) { "cached info expired, re-fetching once: ${spec.url}" }
+            infoCache.discard(stale)
+            val fresh =
+                (ytDlp.fetch(spec.url, loadMixAsPlaylist = false, bypassCache = true) as? FetchedMedia.Single)
+                    ?.takeIf { infoCache.isFresh(it.infoJsonPath, it.infoFetchedAtMs) }
+                    ?.infoJsonPath
+            return spec.copy(infoJsonPath = fresh)
         }
 
         private fun onProgress(

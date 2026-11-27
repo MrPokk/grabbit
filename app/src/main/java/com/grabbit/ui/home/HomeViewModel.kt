@@ -12,11 +12,7 @@ import com.grabbit.core.FetchTrace
 import com.grabbit.core.Links
 import com.grabbit.core.MediaPlatform
 import com.grabbit.core.stateInUi
-import com.grabbit.core.suspendRunCatching
-import com.grabbit.data.download.DownloadOptions
 import com.grabbit.data.download.DownloadRepository
-import com.grabbit.data.download.DownloadRequest
-import com.grabbit.data.download.MediaType
 import com.grabbit.data.preview.LinkPreview
 import com.grabbit.data.preview.OEmbedPreviewProvider
 import com.grabbit.data.search.MediaSearchProvider
@@ -24,11 +20,9 @@ import com.grabbit.data.search.MediaSearchResult
 import com.grabbit.data.search.SearchException
 import com.grabbit.data.settings.AppSettings
 import com.grabbit.data.settings.SettingsRepository
-import com.grabbit.data.settings.toDownloadOptions
 import com.grabbit.data.ytdlp.FetchedMedia
 import com.grabbit.data.ytdlp.InfoException
 import com.grabbit.data.ytdlp.YtDlpEngine
-import com.grabbit.data.ytdlp.availableHeights
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
@@ -42,19 +36,18 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 import javax.inject.Inject
 
-private const val TAG = "HomeViewModel"
+internal const val HOME_TAG = "HomeViewModel"
 
 private const val FETCH_DEBOUNCE_MS = 300L
 
 @HiltViewModel
-@Suppress("TooManyFunctions") // ViewModel aggregates every home action; splitting harms clarity
 class HomeViewModel
     @Inject
     constructor(
         @ApplicationContext private val context: Context,
-        private val ytDlp: YtDlpEngine,
-        private val downloads: DownloadRepository,
-        private val settingsRepository: SettingsRepository,
+        internal val ytDlp: YtDlpEngine,
+        internal val downloads: DownloadRepository,
+        internal val settingsRepository: SettingsRepository,
         private val searchProvider: MediaSearchProvider,
         private val oEmbed: OEmbedPreviewProvider,
     ) : ViewModel() {
@@ -84,9 +77,15 @@ class HomeViewModel
         private var searchGeneration = 0
         private var previewJob: Job? = null
         private var previewUrl: String? = null
-        private var trace: FetchTrace? = null
+        internal var trace: FetchTrace? = null
         private var linkPreviewReported = false
         private var mediaPreviewReported = false
+
+        internal fun updateState(block: (UiState) -> UiState) = _state.update(block)
+
+        internal fun replaceState(value: UiState) {
+            _state.value = value
+        }
 
         val settings: StateFlow<AppSettings> =
             settingsRepository.settings
@@ -260,7 +259,7 @@ class HomeViewModel
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: SearchException) {
-                        AppLog.e(TAG, "search failed", e)
+                        AppLog.e(HOME_TAG, "search failed", e)
                         if (searchGeneration == generation) {
                             _state.update { it.copy(searchError = e.error) }
                         }
@@ -337,7 +336,7 @@ class HomeViewModel
             } catch (e: CancellationException) {
                 throw e
             } catch (e: InfoException) {
-                AppLog.e(TAG, "metadata fetch failed", e)
+                AppLog.e(HOME_TAG, "metadata fetch failed", e)
                 if (fetchProcessId == processId) {
                     _state.update { it.copy(error = e.error) }
                 }
@@ -362,7 +361,7 @@ class HomeViewModel
             activeTrace.logSummary()
         }
 
-        private fun resetPreviewReports() {
+        internal fun resetPreviewReports() {
             linkPreviewReported = false
             mediaPreviewReported = false
         }
@@ -386,107 +385,11 @@ class HomeViewModel
             _state.update { it.copy(loading = false, searching = false) }
         }
 
-        private fun cancelPreview() {
+        internal fun cancelPreview() {
             previewJob?.cancel()
             previewJob = null
             previewUrl = null
             _state.update { it.copy(preview = null) }
-        }
-
-        fun toggleLoadAsMix() {
-            val originalUrl = _state.value.urlForPlaylistToggle
-            if (originalUrl.isBlank() || !Links.isRadioPlaylist(originalUrl)) return
-            _state.update { it.copy(loadAsMix = !it.loadAsMix, media = null, loading = false) }
-            fetch()
-        }
-
-        fun updateYtDlpAndRetry() {
-            viewModelScope.launch {
-                suspendRunCatching { ytDlp.update() }
-                    .onFailure { e -> AppLog.e(TAG, "yt-dlp update failed", e) }
-                fetch()
-            }
-        }
-
-        fun toggleSelection(index: Int) {
-            _state.update { state ->
-                val selected = state.selectedIndices.toMutableSet()
-                if (!selected.add(index)) selected.remove(index)
-                state.copy(selectedIndices = selected)
-            }
-        }
-
-        fun selectAll() {
-            val media = _state.value.media as? FetchedMedia.Collection ?: return
-            _state.update { it.copy(selectedIndices = media.items.map { item -> item.index }.toSet()) }
-        }
-
-        fun deselectAll() {
-            _state.update { it.copy(selectedIndices = emptySet()) }
-        }
-
-        fun openSheet() {
-            if (_state.value.media == null) return
-            _state.update { it.copy(showSheet = true) }
-        }
-
-        fun dismissSheet() {
-            _state.update { it.copy(showSheet = false) }
-        }
-
-        fun setQuickMediaType(type: MediaType) {
-            viewModelScope.launch { settingsRepository.setQuickMediaType(type) }
-        }
-
-        fun quickDownload() {
-            val media = _state.value.media ?: return
-            val settings = settings.value
-            startDownload(settings.toDownloadOptions(settings.quickMediaType, media.availableHeights()))
-        }
-
-        fun startDownload(options: DownloadOptions) {
-            val state = _state.value
-            val media = state.media ?: return
-            val requests =
-                when (media) {
-                    is FetchedMedia.Single ->
-                        listOf(
-                            DownloadRequest(
-                                url = media.info.url,
-                                title = media.title,
-                                uploader = media.uploader,
-                                thumbnail = media.thumbnail,
-                                durationSeconds = media.info.durationSeconds,
-                                site = media.info.site,
-                                options = options,
-                                infoJsonPath = media.infoJsonPath,
-                                infoFetchedAtMs = media.infoFetchedAtMs,
-                            ),
-                        )
-
-                    is FetchedMedia.Collection ->
-                        media.items
-                            .filter { it.index in state.selectedIndices }
-                            .map { item ->
-                                DownloadRequest(
-                                    url = item.url,
-                                    title = item.title,
-                                    uploader = media.uploader,
-                                    thumbnail = item.thumbnail ?: media.thumbnail,
-                                    durationSeconds = item.durationSeconds,
-                                    site = null,
-                                    options = options,
-                                    playlistIndex = item.index,
-                                )
-                            }
-                }
-
-            if (requests.isEmpty()) return
-            downloads.enqueue(requests)
-            cancelPreview()
-            trace = null
-            resetPreviewReports()
-            _state.update { UiState() }
         }
 
         private fun currentUrl(): String = Links.normalize(_state.value.url)

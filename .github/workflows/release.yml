@@ -11,6 +11,14 @@ on:
         description: 'adb device host:port'
         required: false
         default: ''
+      create_release:
+        description: 'Publish a GitHub release with the renamed APKs'
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: write
 
 env:
   GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx4g"
@@ -54,25 +62,40 @@ jobs:
       - name: Assemble Release APK
         run: ./gradlew :app:assembleRelease --console=plain
 
-      - name: Rename APK
-        run: |
-          ABI="${{ github.event.inputs.abi }}"
-          mv "app/build/outputs/apk/release/app-${ABI}-release.apk" \
-             "app/build/outputs/apk/release/grabbit-${ABI}-release.apk"
-          echo "APK_PATH=app/build/outputs/apk/release/grabbit-${ABI}-release.apk" >> $GITHUB_OUTPUT
+      - name: Rename APKs
         id: rename
+        run: |
+          set -euo pipefail
+          apk_dir=app/build/outputs/apk/release
+          for apk in "$apk_dir"/app-*-release.apk; do
+            [ -e "$apk" ] || continue
+            mv -f "$apk" "$apk_dir/grabbit-${apk##*/app-}"
+          done
+          echo "APK_PATH=$apk_dir/grabbit-${{ inputs.abi }}-release.apk" >> "$GITHUB_OUTPUT"
 
-      - name: Upload APK artifact
+      - name: Upload APK artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: grabbit-apk
+          name: grabbit-apks
           path: app/build/outputs/apk/release/grabbit-*-release.apk
 
+      - name: Publish GitHub release
+        if: ${{ inputs.create_release }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          major=$(grep '^MAJOR=' version.properties | cut -d= -f2)
+          minor=$(grep '^MINOR=' version.properties | cut -d= -f2)
+          build=$(grep '^BUILD=' version.properties | cut -d= -f2)
+          tag="v${major}.${minor}.${build}"
+          gh release create "$tag" app/build/outputs/apk/release/grabbit-*-release.apk \
+            --title "Grabbit $tag" \
+            --generate-notes
+
       - name: Install on device via adb
-        if: github.event.inputs.device != ''
+        if: ${{ inputs.device != '' }}
         run: |
           sudo apt-get update -y && sudo apt-get install -y android-tools-adb
-          adb connect "${{ github.event.inputs.device }}"
-          adb -s "${{ github.event.inputs.device }}" install -r -d ${{ steps.rename.outputs.APK_PATH }}
-        env:
-          DEVICE: ${{ github.event.inputs.device }}
+          adb connect "${{ inputs.device }}"
+          adb -s "${{ inputs.device }}" install -r -d ${{ steps.rename.outputs.APK_PATH }}

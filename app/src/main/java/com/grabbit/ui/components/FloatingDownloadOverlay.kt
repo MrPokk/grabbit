@@ -138,7 +138,7 @@ fun FloatingDownloadOverlay(
             Box(
                 modifier =
                     Modifier
-                        .size(Dimens.iconButton)
+                        .size(Dimens.gooTapTargetSize)
                         .align(Alignment.Center)
                         .pointerInput(Unit) { detectTapGestures(onTap = { state.expand() }) }
                         .pointerInput(bounds) {
