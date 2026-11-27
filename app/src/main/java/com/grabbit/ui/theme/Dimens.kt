@@ -18,6 +18,12 @@ object Dimens {
     val iconLg: Dp = 56.dp
     val iconButton: Dp = 48.dp
 
+    /** Top gap of the floating queue panel card-window. */
+    val queuePanelTopPadding: Dp = 16.dp
+
+    /** Bottom gap of the floating queue panel card-window; keeps the bar visible underneath. */
+    val queuePanelBottomPadding: Dp = 32.dp
+
     /** Upward correction so the trailing platform chip sits on the input field's visual centre. */
     val platformTrailingOffset: Dp = 2.dp
 
