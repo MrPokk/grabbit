@@ -73,11 +73,21 @@ jobs:
           done
           echo "APK_PATH=$apk_dir/grabbit-${{ inputs.abi }}-release.apk" >> "$GITHUB_OUTPUT"
 
+      - name: Generate SHA-256 checksums
+        id: checksums
+        run: |
+          set -euo pipefail
+          apk_dir=app/build/outputs/apk/release
+          cd "$apk_dir"
+          sha256sum grabbit-*-release.apk | tee sha256sums.txt
+
       - name: Upload APK artifacts
         uses: actions/upload-artifact@v4
         with:
           name: grabbit-apks
-          path: app/build/outputs/apk/release/grabbit-*-release.apk
+          path: |
+            app/build/outputs/apk/release/grabbit-*-release.apk
+            app/build/outputs/apk/release/sha256sums.txt
 
       - name: Publish GitHub release
         if: ${{ inputs.create_release }}
@@ -89,9 +99,19 @@ jobs:
           minor=$(grep '^MINOR=' version.properties | cut -d= -f2)
           build=$(grep '^BUILD=' version.properties | cut -d= -f2)
           tag="v${major}.${minor}.${build}"
-          gh release create "$tag" app/build/outputs/apk/release/grabbit-*-release.apk \
+          gh release create "$tag" \
+            app/build/outputs/apk/release/grabbit-*-release.apk \
+            app/build/outputs/apk/release/sha256sums.txt \
             --title "Grabbit $tag" \
             --generate-notes
+          # Append SHA-256 checksums to the release notes (integrity check for downloaded APKs).
+          {
+            gh release view "$tag" --json body -q .body
+            printf '\n### SHA-256\n```\n'
+            cat app/build/outputs/apk/release/sha256sums.txt
+            printf '```\n'
+          } > notes.md
+          gh release edit "$tag" --notes-file notes.md
 
       - name: Install on device via adb
         if: ${{ inputs.device != '' }}

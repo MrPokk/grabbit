@@ -127,7 +127,7 @@ android {
         )
 
         // The bundled yt-dlp / python / ffmpeg binaries ship for these ABIs only.
-        // ABI splits produce one APK per ABI (no fat universal APK).
+        // ABI splits produce one APK per ABI plus a fat universal APK.
         // ndk.abiFilters is not set here; splits controls which ABIs are packaged per APK.
     }
 
@@ -136,7 +136,7 @@ android {
             isEnable = true
             reset()
             include("arm64-v8a", "armeabi-v7a", "x86_64")
-            isUniversalApk = false
+            isUniversalApk = true
         }
     }
 
