@@ -1,8 +1,13 @@
 package com.grabbit.ui
 
+import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
@@ -15,9 +20,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -33,7 +40,9 @@ import com.grabbit.ui.home.HomeScreen
 import com.grabbit.ui.queue.QueueScreen
 import com.grabbit.ui.queue.QueueViewModel
 import com.grabbit.ui.settings.SettingsScreen
+import com.grabbit.ui.theme.Motion
 import kotlinx.coroutines.flow.StateFlow
+import kotlin.math.roundToInt
 
 /** Root navigation host with the bottom bar for the main destinations. */
 @Composable
@@ -92,40 +101,91 @@ fun AppRoot(
                     .padding(contentPadding)
                     .fillMaxSize(),
         ) {
+            // Identical fade + slide transition for every route, so moving between screens
+            // feels consistent; the pop (back) transitions slide in the opposite direction.
+            val density = LocalDensity.current
+            val navSlidePx = (Motion.NavSlideDp.value * density.density).roundToInt()
+            val navEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition = {
+                fadeIn(animationSpec = Motion.NavSpec) +
+                    slideInHorizontally(animationSpec = Motion.NavSlideSpec) { _ -> navSlidePx }
+            }
+            val navExit: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition = {
+                fadeOut(animationSpec = Motion.NavSpec) +
+                    slideOutHorizontally(animationSpec = Motion.NavSlideSpec) { _ -> -navSlidePx }
+            }
+            val navPopEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition = {
+                fadeIn(animationSpec = Motion.NavSpec) +
+                    slideInHorizontally(animationSpec = Motion.NavSlideSpec) { _ -> -navSlidePx }
+            }
+            val navPopExit: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition = {
+                fadeOut(animationSpec = Motion.NavSpec) +
+                    slideOutHorizontally(animationSpec = Motion.NavSlideSpec) { _ -> navSlidePx }
+            }
+
             NavHost(
                 navController = navController,
                 startDestination = Routes.DOWNLOAD,
                 modifier = Modifier.fillMaxSize(),
             ) {
-                composable(Routes.DOWNLOAD) {
+                composable(
+                    route = Routes.DOWNLOAD,
+                    enterTransition = navEnter,
+                    exitTransition = navExit,
+                    popEnterTransition = navPopEnter,
+                    popExitTransition = navPopExit,
+                ) {
                     HomeScreen(
                         incomingLink = link,
                         onLinkConsumed = onConsumeLink,
                     )
                 }
-                composable(Routes.QUEUE) {
+                composable(
+                    route = Routes.QUEUE,
+                    enterTransition = navEnter,
+                    exitTransition = navExit,
+                    popEnterTransition = navPopEnter,
+                    popExitTransition = navPopExit,
+                ) {
                     QueueScreen(
                         onBack = { navController.popBackStack() },
                         onOpenSettings = { navController.navigateToTopLevel(Routes.SETTINGS) },
                         viewModel = queueViewModel,
                     )
                 }
-                composable(Routes.HISTORY) {
+                composable(
+                    route = Routes.HISTORY,
+                    enterTransition = navEnter,
+                    exitTransition = navExit,
+                    popEnterTransition = navPopEnter,
+                    popExitTransition = navPopExit,
+                ) {
                     HistoryScreen()
                 }
-                composable(Routes.SETTINGS) {
+                composable(
+                    route = Routes.SETTINGS,
+                    enterTransition = navEnter,
+                    exitTransition = navExit,
+                    popEnterTransition = navPopEnter,
+                    popExitTransition = navPopExit,
+                ) {
                     SettingsScreen(
                         onOpenConvert = { navController.navigate(Routes.CONVERT) },
                     )
                 }
-                composable(Routes.CONVERT) {
+                composable(
+                    route = Routes.CONVERT,
+                    enterTransition = navEnter,
+                    exitTransition = navExit,
+                    popEnterTransition = navPopEnter,
+                    popExitTransition = navPopExit,
+                ) {
                     ConvertScreen(onBack = { navController.popBackStack() })
                 }
             }
             AnimatedVisibility(
                 visible = showWidget,
-                enter = EnterTransition.None,
-                exit = ExitTransition.None,
+                enter = fadeIn(animationSpec = Motion.FabSpec),
+                exit = fadeOut(animationSpec = Motion.FabSpec),
             ) {
                 FloatingDownloadOverlay(
                     summary = queueSummary,

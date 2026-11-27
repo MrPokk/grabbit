@@ -43,6 +43,7 @@ import com.grabbit.data.download.MediaType
 import com.grabbit.ui.components.DeleteConfirmationDialog
 import com.grabbit.ui.components.DeleteMode
 import com.grabbit.ui.components.EmptyState
+import com.grabbit.ui.components.ListItemTransition
 import com.grabbit.ui.components.openSavedFile
 import com.grabbit.ui.components.shareSavedFile
 import com.grabbit.ui.components.showSavedFileInFolder
@@ -148,30 +149,32 @@ fun QueueScreen(
                     }
                 }
                 items(tasks, key = { it.id }) { task ->
-                    TaskCard(
-                        task = task,
-                        callbacks =
-                            TaskCallbacks(
-                                onPause = { viewModel.pause(task.id) },
-                                onResume = { viewModel.resume(task.id) },
-                                onCancel = { viewModel.cancel(task.id) },
-                                onRetry = { viewModel.retry(task.id) },
-                                onRemove = { viewModel.remove(task.id) },
-                                onOpen = {
-                                    task.savedUri?.let { uri -> openSavedFile(context, uri, task.mimeType()) }
-                                },
-                                onShowInFolder = {
-                                    task.savedUri?.let { uri -> showSavedFileInFolder(context, uri) }
-                                },
-                                onShare = {
-                                    task.savedUri?.let { uri ->
-                                        shareSavedFile(context, uri, task.fileName, task.mimeType())
-                                    }
-                                },
-                                onRedownload = { viewModel.downloadAgain(task) },
-                                onDelete = { pendingDelete = task to DeleteMode.DELETE_FILE },
-                            ),
-                    )
+                    ListItemTransition {
+                        TaskCard(
+                            task = task,
+                            callbacks =
+                                TaskCallbacks(
+                                    onPause = { viewModel.pause(task.id) },
+                                    onResume = { viewModel.resume(task.id) },
+                                    onCancel = { viewModel.cancel(task.id) },
+                                    onRetry = { viewModel.retry(task.id) },
+                                    onRemove = { viewModel.remove(task.id) },
+                                    onOpen = {
+                                        task.savedUri?.let { uri -> openSavedFile(context, uri, task.mimeType()) }
+                                    },
+                                    onShowInFolder = {
+                                        task.savedUri?.let { uri -> showSavedFileInFolder(context, uri) }
+                                    },
+                                    onShare = {
+                                        task.savedUri?.let { uri ->
+                                            shareSavedFile(context, uri, task.fileName, task.mimeType())
+                                        }
+                                    },
+                                    onRedownload = { viewModel.downloadAgain(task) },
+                                    onDelete = { pendingDelete = task to DeleteMode.DELETE_FILE },
+                                ),
+                        )
+                    }
                 }
                 item(key = "settings") {
                     TextButton(onClick = onOpenSettings) {

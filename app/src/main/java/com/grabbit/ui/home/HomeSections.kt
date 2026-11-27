@@ -42,6 +42,7 @@ import com.grabbit.data.settings.AppSettings
 import com.grabbit.data.ytdlp.FetchedMedia
 import com.grabbit.ui.components.EmptyState
 import com.grabbit.ui.components.ErrorCard
+import com.grabbit.ui.components.ListItemTransition
 import com.grabbit.ui.components.QuickDownloadControls
 import com.grabbit.ui.components.Thumbnail
 import com.grabbit.ui.theme.Dimens
@@ -82,19 +83,21 @@ internal fun LazyListScope.homeMediaContent(
     when (val media = state.media) {
         is FetchedMedia.Single -> {
             item(key = "preview") {
-                Column(verticalArrangement = Arrangement.spacedBy(Dimens.xs)) {
-                    PreviewCard(
-                        media = media,
-                        settings = settings,
-                        onChooseFormat = viewModel::openSheet,
-                        onQuickDownload = viewModel::quickDownload,
-                        onMediaTypeChange = viewModel::setQuickMediaType,
-                    )
-                    if (Links.isRadioPlaylist(state.urlForPlaylistToggle)) {
-                        MixToggleCard(
-                            checked = state.loadAsMix,
-                            onToggle = viewModel::toggleLoadAsMix,
+                ListItemTransition {
+                    Column(verticalArrangement = Arrangement.spacedBy(Dimens.xs)) {
+                        PreviewCard(
+                            media = media,
+                            settings = settings,
+                            onChooseFormat = viewModel::openSheet,
+                            onQuickDownload = viewModel::quickDownload,
+                            onMediaTypeChange = viewModel::setQuickMediaType,
                         )
+                        if (Links.isRadioPlaylist(state.urlForPlaylistToggle)) {
+                            MixToggleCard(
+                                checked = state.loadAsMix,
+                                onToggle = viewModel::toggleLoadAsMix,
+                            )
+                        }
                     }
                 }
             }
@@ -102,13 +105,15 @@ internal fun LazyListScope.homeMediaContent(
 
         is FetchedMedia.Collection -> {
             item(key = "collection") {
-                Column(verticalArrangement = Arrangement.spacedBy(Dimens.xs)) {
-                    CollectionCard(media = media)
-                    if (Links.isRadioPlaylist(state.urlForPlaylistToggle)) {
-                        MixToggleCard(
-                            checked = state.loadAsMix,
-                            onToggle = viewModel::toggleLoadAsMix,
-                        )
+                ListItemTransition {
+                    Column(verticalArrangement = Arrangement.spacedBy(Dimens.xs)) {
+                        CollectionCard(media = media)
+                        if (Links.isRadioPlaylist(state.urlForPlaylistToggle)) {
+                            MixToggleCard(
+                                checked = state.loadAsMix,
+                                onToggle = viewModel::toggleLoadAsMix,
+                            )
+                        }
                     }
                 }
             }
