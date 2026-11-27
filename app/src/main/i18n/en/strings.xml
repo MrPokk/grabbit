@@ -98,6 +98,7 @@
     <string name="label_audio_format">Format</string>
     <string name="label_bitrate">Bitrate</string>
     <string name="label_container">Container</string>
+    <string name="label_advanced">Advanced</string>
     <string name="label_extras">Extras</string>
     <string name="label_resolution">Resolution</string>
     <plurals name="mix_toggle_desc">

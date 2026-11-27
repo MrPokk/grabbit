@@ -7,6 +7,7 @@ import android.os.Environment
 import android.provider.DocumentsContract
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -15,15 +16,18 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -101,153 +105,184 @@ fun FormatSheet(
             }
         }
 
+    var advancedExpanded by remember { mutableStateOf(false) }
+
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = Dimens.lg)
-                    .padding(bottom = Dimens.iconMd),
-            verticalArrangement = Arrangement.spacedBy(Dimens.xs),
-        ) {
-            Text(
-                text = stringResource(R.string.sheet_title),
-                style = MaterialTheme.typography.titleLarge,
-            )
-
-            Row(horizontalArrangement = Arrangement.spacedBy(Dimens.xs)) {
-                FilterChip(
-                    selected = mediaType == MediaType.VIDEO,
-                    onClick = {
-                        mediaType = MediaType.VIDEO
-                    },
-                    label = { Text(stringResource(R.string.tab_video)) },
-                )
-                FilterChip(
-                    selected = mediaType == MediaType.AUDIO,
-                    onClick = {
-                        mediaType = MediaType.AUDIO
-                    },
-                    label = { Text(stringResource(R.string.tab_audio)) },
-                )
-            }
-
-            if (mediaType == MediaType.VIDEO) {
-                Label(stringResource(R.string.label_resolution))
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(Dimens.xs),
-                ) {
-                    heights.forEach { option ->
-                        FilterChip(
-                            selected = videoHeight == option,
-                            onClick = { videoHeight = option },
-                            label = { Text("${option}p") },
-                        )
-                    }
-                }
-                Label(stringResource(R.string.label_container))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.xs)) {
-                    UiValues.CONTAINERS.forEach { option ->
-                        FilterChip(
-                            selected = options.container == option,
-                            onClick = { options = options.copy(container = option) },
-                            label = { Text(option.uppercase()) },
-                        )
-                    }
-                }
-            } else {
-                Label(stringResource(R.string.label_audio_format))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.xs)) {
-                    UiValues.AUDIO_FORMATS.forEach { option ->
-                        FilterChip(
-                            selected = options.audioFormat == option,
-                            onClick = { options = options.copy(audioFormat = option) },
-                            label = { Text(option.uppercase()) },
-                        )
-                    }
-                }
-                Label(stringResource(R.string.label_bitrate))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.xs)) {
-                    UiValues.BITRATES.forEach { option ->
-                        FilterChip(
-                            selected = options.audioBitrate == option,
-                            onClick = { options = options.copy(audioBitrate = option) },
-                            label = { Text(stringResource(R.string.bitrate_kbps, option)) },
-                        )
-                    }
-                }
-            }
-
-            HorizontalDivider(Modifier.padding(vertical = Dimens.xxs))
-            Label(stringResource(R.string.label_extras))
-            ToggleRow(
-                stringResource(R.string.extra_thumbnail),
-                options.embedThumbnail,
-            ) { options = options.copy(embedThumbnail = it) }
-            ToggleRow(
-                stringResource(R.string.extra_metadata),
-                options.embedMetadata,
-            ) { options = options.copy(embedMetadata = it) }
-            ToggleRow(
-                stringResource(R.string.extra_subtitles),
-                options.subtitles,
-            ) { options = options.copy(subtitles = it) }
-            ToggleRow(
-                stringResource(R.string.extra_sponsorblock),
-                options.sponsorBlock,
-            ) { options = options.copy(sponsorBlock = it) }
-
-            // ----- Advanced: save location -----
-            HorizontalDivider(Modifier.padding(vertical = Dimens.xxs))
-            Label(stringResource(R.string.save_location_title))
-            val folderDescription =
-                saveFolderPath
-                    ?: if (saveFolderUri != null) {
-                        stringResource(R.string.save_location_custom)
-                    } else {
-                        stringResource(R.string.save_location_system)
-                    }
-            Column(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = Dimens.lg),
+                verticalArrangement = Arrangement.spacedBy(Dimens.xxs),
+            ) {
                 Text(
-                    text = folderDescription,
-                    style = MaterialTheme.typography.bodyLarge,
+                    text = stringResource(R.string.sheet_title),
+                    style = MaterialTheme.typography.titleLarge,
                 )
+
                 Row(horizontalArrangement = Arrangement.spacedBy(Dimens.xs)) {
-                    TextButton(onClick = { folderPicker.launch(null) }) {
-                        Text(stringResource(R.string.save_location_pick))
+                    FilterChip(
+                        selected = mediaType == MediaType.VIDEO,
+                        onClick = {
+                            mediaType = MediaType.VIDEO
+                        },
+                        label = { Text(stringResource(R.string.tab_video)) },
+                    )
+                    FilterChip(
+                        selected = mediaType == MediaType.AUDIO,
+                        onClick = {
+                            mediaType = MediaType.AUDIO
+                        },
+                        label = { Text(stringResource(R.string.tab_audio)) },
+                    )
+                }
+
+                if (mediaType == MediaType.VIDEO) {
+                    Label(stringResource(R.string.label_resolution))
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(Dimens.xs),
+                    ) {
+                        heights.forEach { option ->
+                            FilterChip(
+                                selected = videoHeight == option,
+                                onClick = { videoHeight = option },
+                                label = { Text("${option}p") },
+                            )
+                        }
                     }
-                    if (saveFolderUri != null) {
-                        TextButton(onClick = {
-                            saveFolderUri = null
-                            saveFolderPath = null
-                        }) {
-                            Text(stringResource(R.string.save_location_clear))
+                    Label(stringResource(R.string.label_container))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.xs)) {
+                        UiValues.CONTAINERS.forEach { option ->
+                            FilterChip(
+                                selected = options.container == option,
+                                onClick = { options = options.copy(container = option) },
+                                label = { Text(option.uppercase()) },
+                            )
+                        }
+                    }
+                } else {
+                    Label(stringResource(R.string.label_audio_format))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.xs)) {
+                        UiValues.AUDIO_FORMATS.forEach { option ->
+                            FilterChip(
+                                selected = options.audioFormat == option,
+                                onClick = { options = options.copy(audioFormat = option) },
+                                label = { Text(option.uppercase()) },
+                            )
+                        }
+                    }
+                    Label(stringResource(R.string.label_bitrate))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(Dimens.xs)) {
+                        UiValues.BITRATES.forEach { option ->
+                            FilterChip(
+                                selected = options.audioBitrate == option,
+                                onClick = { options = options.copy(audioBitrate = option) },
+                                label = { Text(stringResource(R.string.bitrate_kbps, option)) },
+                            )
+                        }
+                    }
+                }
+
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(MaterialTheme.shapes.medium)
+                                .clickable { advancedExpanded = !advancedExpanded }
+                                .padding(vertical = Dimens.xxs),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.label_advanced),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Icon(
+                            imageVector =
+                                if (advancedExpanded) {
+                                    Icons.Rounded.KeyboardArrowUp
+                                } else {
+                                    Icons.Rounded.KeyboardArrowDown
+                                },
+                            contentDescription = null,
+                        )
+                    }
+                    AnimatedVisibility(visible = advancedExpanded) {
+                        Column(verticalArrangement = Arrangement.spacedBy(Dimens.xxs)) {
+                            HorizontalDivider(Modifier.padding(vertical = Dimens.xxs))
+                            Label(stringResource(R.string.label_extras))
+                            ToggleRow(
+                                stringResource(R.string.extra_thumbnail),
+                                options.embedThumbnail,
+                            ) { options = options.copy(embedThumbnail = it) }
+                            ToggleRow(
+                                stringResource(R.string.extra_metadata),
+                                options.embedMetadata,
+                            ) { options = options.copy(embedMetadata = it) }
+                            ToggleRow(
+                                stringResource(R.string.extra_subtitles),
+                                options.subtitles,
+                            ) { options = options.copy(subtitles = it) }
+                            ToggleRow(
+                                stringResource(R.string.extra_sponsorblock),
+                                options.sponsorBlock,
+                            ) { options = options.copy(sponsorBlock = it) }
+
+                            HorizontalDivider(Modifier.padding(vertical = Dimens.xxs))
+                            Label(stringResource(R.string.save_location_title))
+                            val folderDescription =
+                                saveFolderPath
+                                    ?: if (saveFolderUri != null) {
+                                        stringResource(R.string.save_location_custom)
+                                    } else {
+                                        stringResource(R.string.save_location_system)
+                                    }
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                Text(
+                                    text = folderDescription,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(Dimens.xs)) {
+                                    TextButton(onClick = { folderPicker.launch(null) }) {
+                                        Text(stringResource(R.string.save_location_pick))
+                                    }
+                                    if (saveFolderUri != null) {
+                                        TextButton(onClick = {
+                                            saveFolderUri = null
+                                            saveFolderPath = null
+                                        }) {
+                                            Text(stringResource(R.string.save_location_clear))
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (!isPlaylist) {
+                                HorizontalDivider(Modifier.padding(vertical = Dimens.xxs))
+                                Label(stringResource(R.string.file_name_label))
+                                OutlinedTextField(
+                                    value = fileName,
+                                    onValueChange = { fileName = it },
+                                    singleLine = true,
+                                    placeholder = { Text(stringResource(R.string.file_name_hint)) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                                Text(
+                                    text = stringResource(R.string.file_name_empty),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = Dimens.xxs),
+                                )
+                            }
                         }
                     }
                 }
             }
-
-            // ----- Advanced: file name (single video only) -----
-            if (!isPlaylist) {
-                HorizontalDivider(Modifier.padding(vertical = Dimens.xxs))
-                Label(stringResource(R.string.file_name_label))
-                OutlinedTextField(
-                    value = fileName,
-                    onValueChange = { fileName = it },
-                    singleLine = true,
-                    placeholder = { Text(stringResource(R.string.file_name_hint)) },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Text(
-                    text = stringResource(R.string.file_name_empty),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = Dimens.xxs),
-                )
-            }
-
-            Spacer(Modifier.height(Dimens.xs))
+            HorizontalDivider()
             Button(
                 onClick = {
                     onConfirm(
@@ -259,7 +294,11 @@ fun FormatSheet(
                         ),
                     )
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = Dimens.lg)
+                        .padding(top = Dimens.xs, bottom = Dimens.iconMd),
             ) {
                 Text(stringResource(R.string.action_start_download))
             }
