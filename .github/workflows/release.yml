@@ -55,8 +55,13 @@ jobs:
             ${{ runner.os }}-gradle-
 
       - name: Decode release keystore
-        if: env.KEYSTORE_B64 != ''
+        # Canonical releases are signed. Fail fast instead of silently producing app-*-release-unsigned.apk.
         run: |
+          set -euo pipefail
+          : "${KEYSTORE_B64:?KEYSTORE_B64 secret is not set}"
+          : "${KEYSTORE_PASSWORD:?KEYSTORE_PASSWORD secret is not set}"
+          : "${KEY_ALIAS:?KEY_ALIAS secret is not set}"
+          : "${KEY_PASSWORD:?KEY_PASSWORD secret is not set}"
           echo "${KEYSTORE_B64}" | base64 -d > ./release-keystore.jks
           echo "storeFile=release-keystore.jks" > local.properties
           echo "storePassword=${KEYSTORE_PASSWORD}" >> local.properties
