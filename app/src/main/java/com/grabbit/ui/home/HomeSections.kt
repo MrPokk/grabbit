@@ -271,8 +271,8 @@ internal fun PreviewCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(Dimens.xs)) {
-                    MetaChip(Formatters.duration(media.info.durationSeconds))
-                    MetaChip(
+                    PreviewMetaText(Formatters.duration(media.info.durationSeconds))
+                    PreviewMetaText(
                         pluralStringResource(
                             R.plurals.formats_count,
                             media.info.formats.size,
@@ -280,7 +280,7 @@ internal fun PreviewCard(
                         ),
                     )
                     engineUsed?.let { name ->
-                        MetaChip(text = name)
+                        PreviewMetaText(text = name)
                     }
                 }
                 QuickDownloadControls(
@@ -297,6 +297,15 @@ internal fun PreviewCard(
             }
         }
     }
+}
+
+@Composable
+private fun PreviewMetaText(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 @Composable

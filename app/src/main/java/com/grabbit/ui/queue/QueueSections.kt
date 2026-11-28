@@ -43,7 +43,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.grabbit.R
 import com.grabbit.core.Formatters
@@ -53,11 +52,14 @@ import com.grabbit.data.download.TaskStatus
 import com.grabbit.ui.components.DownloadActionsCallbacks
 import com.grabbit.ui.components.DownloadActionsMenu
 import com.grabbit.ui.components.Thumbnail
+import com.grabbit.ui.components.WordTruncatedText
 import com.grabbit.ui.theme.Dimens
 import com.grabbit.ui.theme.Motion
 import kotlinx.coroutines.delay
 
 private val TaskThumbnailWidth = 88.dp
+
+private const val TASK_TITLE_MAX_LINES = 2
 
 private val taskActionButtonModifier =
     Modifier.sizeIn(minWidth = Dimens.iconButton, minHeight = Dimens.iconButton)
@@ -162,11 +164,10 @@ internal fun TaskCard(
                     )
                     Spacer(Modifier.width(Dimens.sm))
                     Column(Modifier.weight(1f)) {
-                        Text(
+                        WordTruncatedText(
                             text = task.title,
                             style = MaterialTheme.typography.titleMedium,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
+                            maxLines = TASK_TITLE_MAX_LINES,
                         )
                         Spacer(Modifier.height(Dimens.xxs))
                         Crossfade(
@@ -266,7 +267,11 @@ private fun TaskProgressRow(task: DownloadTask) {
         modifier = Modifier.fillMaxWidth(),
     )
     Spacer(Modifier.height(Dimens.xxs))
-    Column(verticalArrangement = Arrangement.spacedBy(Dimens.xxs)) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Text(
             text =
                 stringResource(
@@ -275,16 +280,26 @@ private fun TaskProgressRow(task: DownloadTask) {
                 ),
             style = MaterialTheme.typography.labelMedium,
         )
-        task.speed?.let { speed ->
-            Text(text = speed, style = MaterialTheme.typography.labelMedium)
-        }
-        task.etaSeconds?.let { eta ->
-            Text(
-                text = stringResource(R.string.eta_label, Formatters.duration(eta)),
-                style = MaterialTheme.typography.labelMedium,
-            )
-        }
+        ProgressMeta(
+            speed = task.speed,
+            etaText = task.etaSeconds?.let { eta -> stringResource(R.string.eta_label, Formatters.duration(eta)) },
+        )
     }
+}
+
+@Composable
+private fun ProgressMeta(
+    speed: String?,
+    etaText: String?,
+) {
+    val details =
+        when {
+            speed != null && etaText != null ->
+                stringResource(R.string.status_downloading_details, speed, etaText)
+            speed != null -> speed
+            else -> etaText
+        } ?: return
+    Text(text = details, style = MaterialTheme.typography.labelMedium)
 }
 
 @Composable
