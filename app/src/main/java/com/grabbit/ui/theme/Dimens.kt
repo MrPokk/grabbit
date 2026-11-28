@@ -23,8 +23,6 @@ object Dimens {
     /** Bottom gap of the floating queue panel card-window; keeps the bar visible underneath. */
     val queuePanelBottomPadding: Dp = 32.dp
 
-    val platformTrailingOffset: Dp = 2.dp
-
     val gooCircleSize: Dp = 36.dp
 
     val gooTapTargetSize: Dp = 80.dp
