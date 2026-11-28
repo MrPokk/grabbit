@@ -77,10 +77,12 @@ jobs:
         run: |
           set -euo pipefail
           apk_dir=app/build/outputs/apk/release
+          shopt -s nullglob
+          echo "Contents after assemble:"; ls -la "$apk_dir"
           for apk in "$apk_dir"/app-*-release.apk; do
-            [ -e "$apk" ] || continue
             mv -f "$apk" "$apk_dir/grabbit-${apk##*/app-}"
           done
+          echo "Contents after rename:"; ls -la "$apk_dir"
           echo "APK_PATH=$apk_dir/grabbit-${{ inputs.abi }}-release.apk" >> "$GITHUB_OUTPUT"
 
       - name: Generate SHA-256 checksums
@@ -89,7 +91,14 @@ jobs:
           set -euo pipefail
           apk_dir=app/build/outputs/apk/release
           cd "$apk_dir"
-          sha256sum grabbit-*-release.apk | tee sha256sums.txt
+          shopt -s nullglob
+          apks=(grabbit-*-release.apk)
+          if ((${#apks[@]} == 0)); then
+            echo "No grabbit-*-release.apk found in $apk_dir" >&2
+            ls -la >&2
+            exit 1
+          fi
+          sha256sum "${apks[@]}" | tee sha256sums.txt
 
       - name: Upload APK artifacts
         uses: actions/upload-artifact@v4
