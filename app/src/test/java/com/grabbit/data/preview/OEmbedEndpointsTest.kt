@@ -8,15 +8,18 @@ import org.junit.Test
 class OEmbedEndpointsTest {
     @Test
     fun youtubeLinksUseTheYouTubeEndpoint() {
-        val endpoint = OEmbedEndpoints.forUrl("https://www.youtube.com/watch?v=abc")
-        assertTrue(endpoint!!.startsWith("https://www.youtube.com/oembed?format=json&url="))
+        val endpoint = requireNotNull(OEmbedEndpoints.forUrl("https://www.youtube.com/watch?v=abc"))
+        assertTrue(endpoint.startsWith("https://www.youtube.com/oembed?format=json&url="))
         assertTrue(endpoint.contains("https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3Dabc"))
     }
 
     @Test
     fun shortAndMusicLinksAreYouTube() {
-        assertTrue(OEmbedEndpoints.forUrl("https://youtu.be/abc")!!.contains("youtube.com/oembed"))
-        assertTrue(OEmbedEndpoints.forUrl("https://music.youtube.com/watch?v=abc")!!.contains("youtube.com/oembed"))
+        assertTrue(requireNotNull(OEmbedEndpoints.forUrl("https://youtu.be/abc")).contains("youtube.com/oembed"))
+        assertTrue(
+            requireNotNull(OEmbedEndpoints.forUrl("https://music.youtube.com/watch?v=abc"))
+                .contains("youtube.com/oembed"),
+        )
     }
 
     @Test

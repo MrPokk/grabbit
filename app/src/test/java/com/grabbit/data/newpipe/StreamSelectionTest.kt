@@ -52,7 +52,7 @@ class StreamSelectionTest {
         val combined = video(1080, videoOnly = false)
         val only = video(1080, videoOnly = true)
         val picked = StreamSelection.pickVideo(listOf(combined, only), maxHeight = 0, preferContainer = null)
-        assertTrue(picked!!.videoOnly)
+        assertTrue(requireNotNull(picked).videoOnly)
     }
 
     @Test

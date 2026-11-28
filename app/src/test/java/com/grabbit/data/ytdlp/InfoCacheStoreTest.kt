@@ -3,7 +3,6 @@ package com.grabbit.data.ytdlp
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -31,9 +30,8 @@ class InfoCacheStoreTest {
 
     @Test
     fun savedFileIsFreshAndReadable() {
-        val saved = store().save("https://youtu.be/abc", """{"id":"abc"}""")
-        assertNotNull(saved)
-        val file = File(saved!!.path)
+        val saved = requireNotNull(store().save("https://youtu.be/abc", """{"id":"abc"}"""))
+        val file = File(saved.path)
         assertTrue(file.exists())
         assertEquals("""{"id":"abc"}""", file.readText())
         assertEquals(now, saved.fetchedAtMs)
@@ -42,7 +40,7 @@ class InfoCacheStoreTest {
 
     @Test
     fun entryExpiresAfterTtl() {
-        val saved = store(ttlMs = 1_000L).save("https://youtu.be/abc", "{}")!!
+        val saved = requireNotNull(store(ttlMs = 1_000L).save("https://youtu.be/abc", "{}"))
         now += 1_001L
         assertFalse(store(ttlMs = 1_000L).isFresh(saved.path, saved.fetchedAtMs))
     }
@@ -56,14 +54,14 @@ class InfoCacheStoreTest {
 
     @Test
     fun discardDeletesTheFile() {
-        val saved = store().save("https://youtu.be/abc", "{}")!!
+        val saved = requireNotNull(store().save("https://youtu.be/abc", "{}"))
         store().discard(saved.path)
         assertFalse(File(saved.path).exists())
     }
 
     @Test
     fun oldFilesAreEvictedOnSave() {
-        val old = store(retentionMs = 10_000L).save("https://youtu.be/old", "{}")!!
+        val old = requireNotNull(store(retentionMs = 10_000L).save("https://youtu.be/old", "{}"))
         now += 10_001L
         store(retentionMs = 10_000L).save("https://youtu.be/new", "{}")
         assertFalse(File(old.path).exists())
@@ -71,9 +69,9 @@ class InfoCacheStoreTest {
 
     @Test
     fun sameKeyOverwritesTheSameFile() {
-        val first = store().save("https://youtu.be/abc", "{\"v\":1}")!!
+        val first = requireNotNull(store().save("https://youtu.be/abc", "{\"v\":1}"))
         now += 10L
-        val second = store().save("https://youtu.be/abc", "{\"v\":2}")!!
+        val second = requireNotNull(store().save("https://youtu.be/abc", "{\"v\":2}"))
         assertEquals(first.path, second.path)
         assertEquals("{\"v\":2}", File(second.path).readText())
     }

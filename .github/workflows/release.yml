@@ -30,9 +30,11 @@ concurrency:
 jobs:
   checks:
     uses: ./.github/workflows/checks.yml
+    if: ${{ github.ref == 'refs/heads/main' }}
 
   build-and-install:
     needs: checks
+    if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -55,7 +57,6 @@ jobs:
             ${{ runner.os }}-gradle-
 
       - name: Decode release keystore
-        # Canonical releases are signed. Fail fast instead of silently producing app-*-release-unsigned.apk.
         run: |
           set -euo pipefail
           : "${KEYSTORE_B64:?KEYSTORE_B64 secret is not set}"
@@ -74,7 +75,6 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
       - name: Assemble Release APK
-        # version source is committed version.properties; builds no longer mutate it. Version bumped in a separate commit.
         run: ./gradlew :app:assembleRelease --console=plain
 
       - name: Rename APKs
@@ -87,6 +87,16 @@ jobs:
           for apk in "$apk_dir"/app-*-release.apk; do
             mv -f "$apk" "$apk_dir/grabbit-${apk##*/app-}"
           done
+          if compgen -G "$apk_dir"/app-*-release-unsigned.apk >/dev/null; then
+            echo "Unsigned APK produced; refusing release" >&2
+            ls -la "$apk_dir" >&2
+            exit 1
+          fi
+          if compgen -G "$apk_dir"/app-*-release-unsigned >/dev/null; then
+            echo "Unsigned APK produced; refusing release" >&2
+            ls -la "$apk_dir" >&2
+            exit 1
+          fi
           echo "Contents after rename:"; ls -la "$apk_dir"
           echo "APK_PATH=$apk_dir/grabbit-${{ inputs.abi }}-release.apk" >> "$GITHUB_OUTPUT"
 
@@ -96,25 +106,54 @@ jobs:
           set -euo pipefail
           apk_dir=app/build/outputs/apk/release
           cd "$apk_dir"
-          shopt -s nullglob
-          apks=(grabbit-*-release.apk)
-          if ((${#apks[@]} == 0)); then
-            echo "No grabbit-*-release.apk found in $apk_dir" >&2
-            ls -la >&2
+          apks=(
+            grabbit-arm64-v8a-release.apk
+            grabbit-armeabi-v7a-release.apk
+            grabbit-universal-release.apk
+            grabbit-x86_64-release.apk
+          )
+          for apk in "${apks[@]}"; do
+            if [[ ! -f "$apk" ]]; then
+              echo "Missing $apk" >&2
+              ls -la >&2
+              exit 1
+            fi
+          done
+          sha256sum "${apks[@]}" | LC_ALL=C sort > sha256sums.txt
+          sha256sum -c sha256sums.txt
+
+      - name: Verify APK signatures
+        run: |
+          set -euo pipefail
+          apk_dir=app/build/outputs/apk/release
+          sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          if [[ -z "$sdk_root" || ! -d "$sdk_root/build-tools" ]]; then
+            echo "Android build-tools not found" >&2
             exit 1
           fi
-          sha256sum "${apks[@]}" | tee sha256sums.txt
+          apksigner="$(find "$sdk_root/build-tools" -maxdepth 2 -type f -name apksigner | LC_ALL=C sort -V | tail -n 1)"
+          if [[ -z "$apksigner" ]]; then
+            echo "apksigner not found" >&2
+            exit 1
+          fi
+          "$apksigner" verify --print-certs "$apk_dir/grabbit-arm64-v8a-release.apk"
+          "$apksigner" verify --print-certs "$apk_dir/grabbit-armeabi-v7a-release.apk"
+          "$apksigner" verify --print-certs "$apk_dir/grabbit-universal-release.apk"
+          "$apksigner" verify --print-certs "$apk_dir/grabbit-x86_64-release.apk"
 
       - name: Upload APK artifacts
         uses: actions/upload-artifact@v7
         with:
           name: grabbit-apks
           path: |
-            app/build/outputs/apk/release/grabbit-*-release.apk
+            app/build/outputs/apk/release/grabbit-arm64-v8a-release.apk
+            app/build/outputs/apk/release/grabbit-armeabi-v7a-release.apk
+            app/build/outputs/apk/release/grabbit-universal-release.apk
+            app/build/outputs/apk/release/grabbit-x86_64-release.apk
             app/build/outputs/apk/release/sha256sums.txt
 
       - name: Publish GitHub release
-        if: ${{ inputs.create_release }}
+        if: ${{ inputs.create_release && github.ref == 'refs/heads/main' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -135,15 +174,17 @@ jobs:
             exit 1
           fi
 
-          gh release create "$tag" \
-            "$apk_dir"/grabbit-*-release.apk \
-            "$apk_dir/sha256sums.txt" \
-            --title "$title" \
-            --generate-notes
+          gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+            -X POST \
+            -f tag_name="$tag" \
+            -f target_commitish=main \
+            -q .body > generated-notes.md
 
-          # Canonical notes: generated 'What's Changed' + fixed Release assets + fixed SHA-256 sections.
           {
-            gh release view "$tag" --json body -q .body
+            if ! grep -qxF "## What's Changed" generated-notes.md; then
+              printf "## What's Changed\n\n"
+            fi
+            cat generated-notes.md
             printf '\n## Release assets\n\n'
             printf '%s\n' \
               '- `grabbit-arm64-v8a-release.apk` — arm64-v8a' \
@@ -157,10 +198,19 @@ jobs:
             cat "$apk_dir/sha256sums.txt"
             printf '```\n'
           } > notes.md
-          gh release edit "$tag" --notes-file notes.md
+
+          gh release create "$tag" \
+            "$apk_dir/grabbit-arm64-v8a-release.apk" \
+            "$apk_dir/grabbit-armeabi-v7a-release.apk" \
+            "$apk_dir/grabbit-universal-release.apk" \
+            "$apk_dir/grabbit-x86_64-release.apk" \
+            "$apk_dir/sha256sums.txt" \
+            --title "$title" \
+            --notes-file notes.md \
+            --target main
 
           echo "Published $title"
-          gh release view "$tag" --json tagName,name,url,assets
+          gh release view "$tag" --json tagName,name,isDraft,isPrerelease,targetCommitish,url,assets,body
 
       - name: Install on device via adb
         if: ${{ inputs.device != '' }}
